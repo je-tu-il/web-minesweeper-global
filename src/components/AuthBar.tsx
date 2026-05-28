@@ -39,7 +39,7 @@ export function AuthBar() {
   }
 
   const initial = (userProfile.username || user.displayName || "?")[0].toUpperCase();
-  const { totalWins, totalLosses } = userProfile.stats;
+  const { totalWins, totalLosses } = userProfile.stats || { totalWins: 0, totalLosses: 0 };
 
   return (
     <header className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 backdrop-blur-xl">

@@ -6,7 +6,7 @@ interface PlayerStatsProps {
 }
 
 export function PlayerStats({ profile }: PlayerStatsProps) {
-  const { totalWins, totalLosses } = profile.stats;
+  const { totalWins, totalLosses } = profile.stats || { totalWins: 0, totalLosses: 0 };
   const total = totalWins + totalLosses;
   const winRate = total > 0 ? Math.round((totalWins / total) * 100) : 0;
 

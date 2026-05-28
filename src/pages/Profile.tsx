@@ -70,8 +70,9 @@ export default function Profile() {
   };
 
   const isFollowing = myProfile?.following?.includes(profile.uid);
-  const winRate = profile.stats.totalWins + profile.stats.totalLosses > 0
-    ? Math.round((profile.stats.totalWins / (profile.stats.totalWins + profile.stats.totalLosses)) * 100)
+  const { totalWins, totalLosses } = profile.stats || { totalWins: 0, totalLosses: 0 };
+  const winRate = totalWins + totalLosses > 0
+    ? Math.round((totalWins / (totalWins + totalLosses)) * 100)
     : 0;
 
   return (
@@ -134,11 +135,11 @@ export default function Profile() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Victoires</span>
-                  <span className="font-mono text-xl font-black text-emerald-400">{profile.stats.totalWins}</span>
+                  <span className="font-mono text-xl font-black text-emerald-400">{totalWins}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Défaites</span>
-                  <span className="font-mono text-xl font-black text-red-400">{profile.stats.totalLosses}</span>
+                  <span className="font-mono text-xl font-black text-red-400">{totalLosses}</span>
                 </div>
                 <div className="h-px w-full bg-white/10" />
                 <div className="flex items-center justify-between">
@@ -147,7 +148,7 @@ export default function Profile() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1 text-slate-400"><Flame className="h-4 w-4 text-orange-400" /> Série max</span>
-                  <span className="font-mono text-lg font-bold text-orange-400">{profile.stats.bestWinStreak || 0}</span>
+                  <span className="font-mono text-lg font-bold text-orange-400">{profile.stats?.bestWinStreak || 0}</span>
                 </div>
               </div>
             </section>
