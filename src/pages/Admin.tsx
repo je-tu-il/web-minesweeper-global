@@ -32,12 +32,6 @@ const Admin = () => {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
-  // Password Modification States
-  const [currentAdminPasswordInput, setCurrentAdminPasswordInput] = useState("");
-  const [newAdminPasswordInput, setNewAdminPasswordInput] = useState("");
-  const [confirmNewAdminPassword, setConfirmNewAdminPassword] = useState("");
-  const [passwordFormOpen, setPasswordFormOpen] = useState(false);
-
   // Precise User Editing States
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [tempUsername, setTempUsername] = useState("");
@@ -189,28 +183,6 @@ const Admin = () => {
     }
   };
 
-  const handleChangeAdminPassword = async () => {
-    if (newAdminPasswordInput !== confirmNewAdminPassword) {
-      toast.error("Les deux nouveaux mots de passe ne correspondent pas.");
-      return;
-    }
-    try {
-      const realPassword = await getAdminPassword();
-      if (currentAdminPasswordInput !== realPassword) {
-        toast.error("Mot de passe administrateur actuel invalide.");
-        return;
-      }
-      await updateAdminPassword(newAdminPasswordInput);
-      setCurrentAdminPasswordInput("");
-      setNewAdminPasswordInput("");
-      setConfirmNewAdminPassword("");
-      setPasswordFormOpen(false);
-      toast.success("Mot de passe administrateur mis à jour avec succès !");
-    } catch (err) {
-      toast.error("Échec du changement de mot de passe.");
-    }
-  };
-
   // Open Player Detail Drawer
   const openPlayerEditor = (u: UserProfile) => {
     setEditingUser(u);
@@ -310,12 +282,6 @@ const Admin = () => {
             <h1 className="text-2xl font-bold text-white">Dashboard Admin</h1>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => setPasswordFormOpen(!passwordFormOpen)}
-              className="flex items-center gap-1.5 rounded-xl border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm text-amber-200 transition hover:bg-amber-300/20"
-            >
-              <KeyRound className="h-4 w-4" /> Modif MDP
-            </button>
             <Link
               to="/"
               className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-400 transition hover:bg-white/10"
@@ -326,52 +292,6 @@ const Admin = () => {
           </div>
         </header>
 
-        {/* Change Admin Password Card */}
-        {passwordFormOpen && (
-          <section className="mb-6 rounded-[2rem] border border-amber-300/25 bg-amber-400/[0.04] p-6 backdrop-blur-xl">
-            <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <KeyRound className="h-5 w-5 text-amber-400" />
-              Changement du mot de passe Administrateur
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <input
-                value={currentAdminPasswordInput}
-                onChange={(e) => setCurrentAdminPasswordInput(e.target.value)}
-                type="password"
-                placeholder="Mot de passe actuel"
-                className="rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 text-sm text-white outline-none transition focus:border-amber-300/40"
-              />
-              <input
-                value={newAdminPasswordInput}
-                onChange={(e) => setNewAdminPasswordInput(e.target.value)}
-                type="password"
-                placeholder="Nouveau mot de passe"
-                className="rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 text-sm text-white outline-none transition focus:border-amber-300/40"
-              />
-              <input
-                value={confirmNewAdminPassword}
-                onChange={(e) => setConfirmNewAdminPassword(e.target.value)}
-                type="password"
-                placeholder="Confirmer mot de passe"
-                className="rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 text-sm text-white outline-none transition focus:border-amber-300/40"
-              />
-            </div>
-            <div className="mt-4 flex gap-2 justify-end">
-              <button
-                onClick={() => setPasswordFormOpen(false)}
-                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-400 hover:bg-white/10"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleChangeAdminPassword}
-                className="rounded-xl bg-amber-400 px-5 py-2 text-xs font-bold text-slate-950 hover:bg-amber-300"
-              >
-                Modifier le mot de passe
-              </button>
-            </div>
-          </section>
-        )}
 
         <div className="grid gap-6 lg:grid-cols-[1.2fr_2fr]">
           {/* Banned users */}
@@ -703,6 +623,23 @@ const Admin = () => {
             </div>
 
             <div className="flex gap-2 justify-end border-t border-white/5 pt-4 mt-4">
+              <button
+                onClick={async () => {
+                  if (confirm(`Supprimer définitivement le compte de ${editingUser.username} ?`)) {
+                    try {
+                      await deleteUserProfile(editingUser.uid);
+                      loadUsers();
+                      setEditingUser(null);
+                      toast.success("Compte supprimé avec succès.");
+                    } catch (e) {
+                      toast.error("Erreur lors de la suppression du compte.");
+                    }
+                  }
+                }}
+                className="rounded-xl bg-red-500/10 border border-red-500/20 px-5 py-2.5 text-xs font-bold text-red-400 hover:bg-red-500/20 mr-auto flex items-center gap-1.5"
+              >
+                <Trash2 className="h-4 w-4" /> Supprimer le compte
+              </button>
               <button
                 onClick={() => setEditingUser(null)}
                 className="rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-xs font-semibold text-slate-400 hover:bg-white/10"

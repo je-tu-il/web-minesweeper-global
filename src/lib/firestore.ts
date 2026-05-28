@@ -37,10 +37,17 @@ export async function addGameToHistory(uid: string, room: Room, game: any, time:
   const history = user.history || [];
   
   // Create history entry
+  let diff = "custom";
+  const { width, height, mines } = room.gridConfig;
+  if (width === 9 && height === 9 && mines === 10) diff = "beginner";
+  else if (width === 16 && height === 16 && mines === 40) diff = "intermediate";
+  else if (width === 30 && height === 16 && mines === 99) diff = "expert";
+  else if (width === 6 && height === 6 && mines === 5) diff = "tiny";
+
   const entry = {
     id: crypto.randomUUID(),
     mode: room.mode,
-    difficulty: Object.keys(GRID_PRESETS).find(k => JSON.stringify(GRID_PRESETS[k]) === JSON.stringify(room.gridConfig)) || "custom",
+    difficulty: diff,
     result: game.result,
     time,
     date: Date.now(),
@@ -317,7 +324,14 @@ export async function syncGameState(
 
 export async function submitScore(entry: Omit<LeaderboardEntry, "id">): Promise<void> {
   const ref = doc(collection(firestore, "leaderboard"));
-  await setDoc(ref, { ...entry, id: ref.id });
+  // Strip potential undefined values like pureLogic
+  const cleanConfig = { 
+    width: entry.gridConfig.width, 
+    height: entry.gridConfig.height, 
+    mines: entry.gridConfig.mines,
+    ...(entry.gridConfig.pureLogic !== undefined && { pureLogic: entry.gridConfig.pureLogic })
+  };
+  await setDoc(ref, { ...entry, gridConfig: cleanConfig, id: ref.id });
 }
 
 export async function getLeaderboard(difficulty: string, max = 50): Promise<LeaderboardEntry[]> {

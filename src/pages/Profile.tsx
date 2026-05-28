@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { getUserProfile, followUser, unfollowUser, getAllUsers } from "@/lib/firestore";
 import { useUiStore } from "@/store/uiStore";
-import { Trophy, Swords, Flame, Clock, CalendarDays, X, User, ArrowLeft, UserPlus, UserMinus, Settings, Users, MessageCircle } from "lucide-react";
+import { Trophy, Swords, Flame, Clock, CalendarDays, X, User, ArrowLeft, UserPlus, UserMinus, Settings, Users, MessageCircle, Shield } from "lucide-react";
 import { ACHIEVEMENTS, TIER_COLORS, GRID_PRESETS, type UserProfile, type GameHistoryEntry } from "@/types";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -142,7 +142,14 @@ export default function Profile() {
               )}
             </div>
             <div>
-              <h1 className="text-4xl font-black text-white">{profile.username}</h1>
+              <h1 className="text-4xl font-black text-white flex items-center gap-3">
+                {profile.username}
+                {profile.role === "admin" && (
+                  <Link to="/admin" title="Panel Administrateur" className="grid h-8 w-8 place-items-center rounded-xl bg-amber-400/20 text-amber-300 hover:bg-amber-400/30 transition">
+                    <Shield className="h-4 w-4" />
+                  </Link>
+                )}
+              </h1>
               <p className="mt-2 text-slate-400">
                 Membre depuis le {new Date(profile.createdAt).toLocaleDateString()}
               </p>
@@ -383,7 +390,7 @@ export default function Profile() {
                                 title={t.label}
                               >
                                 <span className="text-lg">{badgeIcon}</span>
-                                <span className="text-[9px] font-bold text-center mt-1 text-slate-300 truncate w-full">{t.label}</span>
+                                <span className="text-[9px] font-bold text-center mt-1 text-slate-300 leading-tight w-full break-words whitespace-normal">{t.label}</span>
                                 <span className="text-[8px] font-extrabold uppercase tracking-widest mt-0.5" style={{ color: hasAch ? tierColor : "#555" }}>
                                   {t.tier}
                                 </span>
