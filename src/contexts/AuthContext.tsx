@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Setup presence
       import("@/lib/firestore").then(({ setupPresence }) => {
         setupPresence(firebaseUser.uid);
-      });
+      }).catch(console.error);
     } catch (error) {
       console.error("Erreur chargement profil:", error);
     }

@@ -54,19 +54,19 @@ const CellComponent = React.memo(({ cell, cellSize, isExploded, disabled, isGame
         color: isRevealed && !isMine && num > 0 ? NUMBER_COLORS[num] : undefined,
       }}
       className={[
-        "relative select-none font-bold transition-colors duration-75 flex items-center justify-center rounded-[2px]",
-        // 🔹 Case cachée : style classique 3D relevé, simplifié 🔹
+        "relative select-none font-bold transition-all duration-150 flex items-center justify-center rounded-lg",
+        // 🔹 Case cachée : style futuriste 🔹
         !isRevealed && [
-          "bg-slate-700 border-t-slate-500 border-l-slate-500 border-b-slate-900 border-r-slate-900",
-          "border-[2px]",
-          !disabled && "hover:bg-slate-600 active:border-t-slate-900 active:border-l-slate-900 active:border-b-slate-500 active:border-r-slate-500 active:bg-slate-800",
+          "bg-gradient-to-br from-slate-700 to-slate-800 border border-slate-500/50",
+          "shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),_0_2px_4px_rgba(0,0,0,0.4)]",
+          !disabled && "hover:from-slate-600 hover:to-slate-700 hover:border-cyan-400/80 hover:shadow-[0_0_10px_rgba(34,211,238,0.3)] active:scale-95 active:shadow-inner",
         ].join(" "),
-        // 🔹 Case révélée : style creux, simplifié 🔹
-        isRevealed && !isMine && "border border-slate-800/50 bg-[#1e2329]",
+        // 🔹 Case révélée : style creux futuriste 🔹
+        isRevealed && !isMine && "bg-[#0b1121] border border-white/5 shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)]",
         // 🔹 Mine explosée 🔹
-        isExploded && "bg-red-600 border border-red-700 z-10",
+        isExploded && "bg-red-500 border border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.6)] z-10 scale-105",
         // 🔹 Mine révélée (game over) 🔹
-        isRevealed && isMine && !isExploded && "border border-slate-900 bg-[#2a1a1a]",
+        isRevealed && isMine && !isExploded && "bg-slate-900 border border-slate-800 shadow-[inset_0_3px_6px_rgba(0,0,0,0.8)]",
         // 🔹 Disabled 🔹
         disabled ? "cursor-not-allowed opacity-80" : "cursor-pointer",
       ]

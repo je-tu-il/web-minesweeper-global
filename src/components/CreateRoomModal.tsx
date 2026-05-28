@@ -161,9 +161,13 @@ export function CreateRoomModal() {
             </div>
             
             <div className="space-y-2">
-              <div className="flex justify-between text-xs font-semibold text-slate-400">
+              <div className="flex justify-between items-center text-xs font-semibold text-slate-400">
                 <span>Largeur</span>
-                <span className="text-white">{customWidth}</span>
+                <input 
+                  type="number" min="5" max="50" value={customWidth}
+                  onChange={(e) => setCustomWidth(e.target.value)}
+                  className="w-16 bg-black/40 border border-white/10 rounded-md px-2 py-1 text-white text-right outline-none focus:border-cyan-300/50"
+                />
               </div>
               <input 
                 type="range" min="5" max="50" value={customWidth} 
@@ -173,9 +177,13 @@ export function CreateRoomModal() {
             </div>
             
             <div className="space-y-2">
-              <div className="flex justify-between text-xs font-semibold text-slate-400">
+              <div className="flex justify-between items-center text-xs font-semibold text-slate-400">
                 <span>Hauteur</span>
-                <span className="text-white">{customHeight}</span>
+                <input 
+                  type="number" min="5" max="50" value={customHeight}
+                  onChange={(e) => setCustomHeight(e.target.value)}
+                  className="w-16 bg-black/40 border border-white/10 rounded-md px-2 py-1 text-white text-right outline-none focus:border-cyan-300/50"
+                />
               </div>
               <input 
                 type="range" min="5" max="50" value={customHeight} 
@@ -185,9 +193,13 @@ export function CreateRoomModal() {
             </div>
             
             <div className="space-y-2">
-              <div className="flex justify-between text-xs font-semibold text-slate-400">
+              <div className="flex justify-between items-center text-xs font-semibold text-slate-400">
                 <span>Mines (max {Math.max(1, (parseInt(customWidth) || 10) * (parseInt(customHeight) || 10) - 9)})</span>
-                <span className="text-red-300">{customMines}</span>
+                <input 
+                  type="number" min="1" max={Math.max(1, (parseInt(customWidth) || 10) * (parseInt(customHeight) || 10) - 9)} value={customMines}
+                  onChange={(e) => setCustomMines(e.target.value)}
+                  className="w-16 bg-black/40 border border-white/10 rounded-md px-2 py-1 text-red-300 text-right outline-none focus:border-red-400/50"
+                />
               </div>
               <input 
                 type="range" min="1" max={Math.max(1, (parseInt(customWidth) || 10) * (parseInt(customHeight) || 10) - 9)} value={customMines} 

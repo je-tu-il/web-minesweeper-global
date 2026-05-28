@@ -204,21 +204,21 @@ export function subscribeLiveRoom(roomId: string, callback: (data: LiveRoom | nu
 export function setupPresence(uid: string): () => void {
   const connectedRef = rtdbRef(rtdb, ".info/connected");
   const userStatusRef = rtdbRef(rtdb, `status/${uid}`);
+  const isOnlineForDatabase = "online";
+  const isOfflineForDatabase = "offline";
   
-  const unsub = onValue(connectedRef, (snap) => {
+  const unsubscribe = onValue(connectedRef, (snap) => {
     if (snap.val() === true) {
-      import("firebase/database").then(({ onDisconnect, set }) => {
-        onDisconnect(userStatusRef).set("offline").then(() => {
-          set(userStatusRef, "online");
-        });
-      });
+      onDisconnect(userStatusRef).set(isOfflineForDatabase).then(() => {
+        set(userStatusRef, isOnlineForDatabase).catch((err) => console.warn("RTDB set failed:", err.message));
+      }).catch((err) => console.warn("RTDB onDisconnect failed:", err.message));
     }
   });
 
   return () => {
-    unsub();
+    unsubscribe();
     import("firebase/database").then(({ set }) => {
-      set(userStatusRef, "offline");
+      set(userStatusRef, "offline").catch(() => {});
     });
   };
 }
