@@ -13,6 +13,7 @@ import {
   query,
   where,
   limit,
+  orderBy,
 } from "firebase/firestore";
 import { ref as rtdbRef, remove } from "firebase/database";
 import { firestore, rtdb } from "./firebase";
