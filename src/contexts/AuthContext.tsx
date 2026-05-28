@@ -59,6 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const bannedList = await getBannedUsernames();
         setIsBanned(bannedList.includes(profile.username));
       }
+      
+      // Setup presence
+      import("@/lib/firestore").then(({ setupPresence }) => {
+        setupPresence(firebaseUser.uid);
+      });
     } catch (error) {
       console.error("Erreur chargement profil:", error);
     }

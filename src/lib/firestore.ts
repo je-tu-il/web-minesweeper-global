@@ -15,9 +15,10 @@ import {
   limit,
   orderBy,
 } from "firebase/firestore";
-import { ref as rtdbRef, remove } from "firebase/database";
+import { ref as rtdbRef, remove, onValue } from "firebase/database";
 import { firestore, rtdb } from "./firebase";
-import type { UserProfile, Room, RoomPlayer, LeaderboardEntry } from "@/types";
+import type { UserProfile, Room, RoomPlayer, LeaderboardEntry, LiveRoom } from "@/types";
+import { GRID_PRESETS } from "@/types";
 
 /* ================================================================
    Users
@@ -28,9 +29,51 @@ export async function createOrUpdateProfile(uid: string, data: Partial<UserProfi
   await setDoc(ref, data, { merge: true });
 }
 
+export async function addGameToHistory(uid: string, room: Room, game: any, time: number): Promise<void> {
+  const ref = doc(firestore, "users", uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const user = snap.data() as UserProfile;
+  const history = user.history || [];
+  
+  // Create history entry
+  const entry = {
+    id: crypto.randomUUID(),
+    mode: room.mode,
+    difficulty: Object.keys(GRID_PRESETS).find(k => JSON.stringify(GRID_PRESETS[k]) === JSON.stringify(room.gridConfig)) || "custom",
+    result: game.result,
+    time,
+    date: Date.now(),
+    seed: room.seed,
+    firstClick: room.firstClick
+  };
+  
+  // Update stats
+  const stats = { ...user.stats };
+  if (game.result === "won") {
+    stats.totalWins++;
+    stats.winStreak++;
+    if (stats.winStreak > stats.bestWinStreak) stats.bestWinStreak = stats.winStreak;
+  } else if (game.result === "lost") {
+    stats.totalLosses++;
+    stats.winStreak = 0;
+  }
+  
+  await updateDoc(ref, {
+    history: [entry, ...history].slice(0, 50), // keep last 50
+    stats
+  });
+}
+
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const snap = await getDoc(doc(firestore, "users", uid));
   return snap.exists() ? (snap.data() as UserProfile) : null;
+}
+
+export async function checkUsernameExists(username: string): Promise<boolean> {
+  const q = query(collection(firestore, "users"), where("username", "==", username), limit(1));
+  const snap = await getDocs(q);
+  return !snap.empty;
 }
 
 export async function getAllUsers(): Promise<UserProfile[]> {
@@ -152,6 +195,46 @@ export function subscribeRoom(roomId: string, callback: (room: Room | null) => v
   });
 }
 
+export function subscribeLiveRoom(roomId: string, callback: (data: LiveRoom | null) => void): () => void {
+  const ref = rtdbRef(rtdb, `liveRoom/${roomId}`);
+  return onValue(ref, (snap) => {
+    callback(snap.exists() ? (snap.val() as LiveRoom) : null);
+  });
+}
+
+/* ================================================================
+   Presence (Online Status)
+   ================================================================ */
+
+export function setupPresence(uid: string): () => void {
+  const connectedRef = rtdbRef(rtdb, ".info/connected");
+  const userStatusRef = rtdbRef(rtdb, `status/${uid}`);
+  
+  const unsub = onValue(connectedRef, (snap) => {
+    if (snap.val() === true) {
+      import("firebase/database").then(({ onDisconnect, set }) => {
+        onDisconnect(userStatusRef).set("offline").then(() => {
+          set(userStatusRef, "online");
+        });
+      });
+    }
+  });
+
+  return () => {
+    unsub();
+    import("firebase/database").then(({ set }) => {
+      set(userStatusRef, "offline");
+    });
+  };
+}
+
+export function subscribeUserPresence(uid: string, callback: (status: "online" | "offline") => void): () => void {
+  const ref = rtdbRef(rtdb, `status/${uid}`);
+  return onValue(ref, (snap) => {
+    callback(snap.val() === "online" ? "online" : "offline");
+  });
+}
+
 export async function joinRoom(roomId: string, uid: string, player: RoomPlayer): Promise<void> {
   const ref = doc(firestore, "rooms", roomId);
   await updateDoc(ref, { [`players.${uid}`]: player });
@@ -178,7 +261,11 @@ export async function updateRoom(roomId: string, data: Record<string, unknown>):
 
 export async function deleteRoom(roomId: string): Promise<void> {
   await deleteDoc(doc(firestore, "rooms", roomId));
-  await remove(rtdbRef(rtdb, `liveRoom/${roomId}`));
+  try {
+    await remove(rtdbRef(rtdb, `liveRoom/${roomId}`));
+  } catch (err) {
+    console.warn("RTDB liveRoom cleanup failed (ignored)", err);
+  }
 }
 
 /** Sync le game state dans la room (pour reprendre + spectate) */

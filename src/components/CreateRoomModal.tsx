@@ -38,7 +38,9 @@ export function CreateRoomModal() {
     if (selectedDifficulty === "custom") {
       const w = Math.max(5, Math.min(50, parseInt(customWidth) || 10));
       const h = Math.max(5, Math.min(50, parseInt(customHeight) || 10));
-      const m = Math.max(1, Math.min(w * h - 9, parseInt(customMines) || 15));
+      // Max mines is width * height - 9 to ensure an opening click is possible
+      const maxMines = (w * h) - 9;
+      const m = Math.max(1, Math.min(maxMines, parseInt(customMines) || 15));
       finalConfig = { width: w, height: h, mines: m };
     }
     return { ...finalConfig, pureLogic };
@@ -152,42 +154,45 @@ export function CreateRoomModal() {
 
         {/* Custom Grid Controls */}
         {selectedDifficulty === "custom" && (
-          <div className="mb-5 space-y-4 rounded-xl border border-white/5 bg-white/[0.02] p-4">
+          <div className="mb-5 space-y-5 rounded-xl border border-white/5 bg-white/[0.02] p-4">
             <div className="flex items-center gap-2 text-sm font-bold text-white mb-2">
               <Settings2 className="h-4 w-4 text-slate-400" />
               Paramètres personnalisés
             </div>
-            <div>
-              <label className="flex justify-between text-xs font-semibold text-slate-400 mb-1">
-                <span>Largeur (5-50)</span>
-              </label>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-semibold text-slate-400">
+                <span>Largeur</span>
+                <span className="text-white">{customWidth}</span>
+              </div>
               <input 
-                type="number" min="5" max="50" value={customWidth} 
+                type="range" min="5" max="50" value={customWidth} 
                 onChange={(e) => setCustomWidth(e.target.value)}
-                onBlur={() => setCustomWidth(config.width.toString())}
-                className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white outline-none focus:border-cyan-300/50 focus:ring-1 focus:ring-cyan-300/50"
+                className="w-full accent-cyan-400 cursor-pointer"
               />
             </div>
-            <div>
-              <label className="flex justify-between text-xs font-semibold text-slate-400 mb-1">
-                <span>Hauteur (5-50)</span>
-              </label>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-semibold text-slate-400">
+                <span>Hauteur</span>
+                <span className="text-white">{customHeight}</span>
+              </div>
               <input 
-                type="number" min="5" max="50" value={customHeight} 
+                type="range" min="5" max="50" value={customHeight} 
                 onChange={(e) => setCustomHeight(e.target.value)}
-                onBlur={() => setCustomHeight(config.height.toString())}
-                className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white outline-none focus:border-cyan-300/50 focus:ring-1 focus:ring-cyan-300/50"
+                className="w-full accent-cyan-400 cursor-pointer"
               />
             </div>
-            <div>
-              <label className="flex justify-between text-xs font-semibold text-slate-400 mb-1">
-                <span>Mines</span>
-              </label>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-semibold text-slate-400">
+                <span>Mines (max {Math.max(1, (parseInt(customWidth) || 10) * (parseInt(customHeight) || 10) - 9)})</span>
+                <span className="text-red-300">{customMines}</span>
+              </div>
               <input 
-                type="number" min="1" value={customMines} 
+                type="range" min="1" max={Math.max(1, (parseInt(customWidth) || 10) * (parseInt(customHeight) || 10) - 9)} value={customMines} 
                 onChange={(e) => setCustomMines(e.target.value)}
-                onBlur={() => setCustomMines(config.mines.toString())}
-                className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white outline-none focus:border-red-400/50 focus:ring-1 focus:ring-red-400/50"
+                className="w-full accent-red-400 cursor-pointer"
               />
             </div>
           </div>

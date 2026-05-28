@@ -70,6 +70,8 @@ export interface GameHistoryEntry {
   result: GameResult; // "won" | "lost"
   time: number; // secondes
   date: number; // timestamp
+  seed?: number;
+  firstClick?: { x: number, y: number };
 }
 
 /* ── Grid ── */

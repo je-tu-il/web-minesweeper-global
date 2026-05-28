@@ -209,13 +209,26 @@ const Index = () => {
   };
 
   const handleSurrender = () => {
-    useGameStore.setState({
-      game: {
-        ...game,
-        result: "lost"
-      },
-      isTimerRunning: false
-    });
+    const room = roomRef.current;
+    if (room && userProfile) {
+      // Si c'est solo, on ajoute simplement à l'historique
+      // Si c'est multijoueur, ça le notera perdu pour le joueur qui abandonne.
+      const endedGame = { ...game, result: "lost" as const };
+      useGameStore.setState({ game: endedGame, isTimerRunning: false });
+      
+      // L'enregistrement en BDD se fera via un useEffect ou un appel manuel
+      // On va simplifier: on ajoute la défaite et on quitte/supprime la room.
+      import("@/lib/firestore").then(({ addGameToHistory, leaveRoom, deleteRoom }) => {
+        addGameToHistory(userProfile.uid, room, endedGame, timer);
+        if (Object.keys(room.players).length <= 1) {
+          deleteRoom(selectedRoomId!);
+        } else {
+          leaveRoom(selectedRoomId!, userProfile.uid);
+        }
+      });
+      
+      handleBackToLobby();
+    }
   };
 
   // ── Loading ──
@@ -248,11 +261,11 @@ const Index = () => {
 
           <button
             onClick={signInWithGoogle}
-            className="rounded-2xl bg-cyan-300 px-8 py-4 text-lg font-bold text-slate-950 shadow-lg shadow-cyan-300/20 transition hover:bg-cyan-200 hover:shadow-cyan-300/30"
+            className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-8 py-4 font-bold text-cyan-100 shadow-[0_0_40px_rgba(34,211,238,0.2)] transition hover:bg-cyan-400/20 hover:shadow-[0_0_60px_rgba(34,211,238,0.4)]"
           >
             Se connecter avec Google
           </button>
-
+          
           <div className="mt-16 grid grid-cols-3 gap-6 text-center">
             {[
               { icon: Crosshair, label: "3 Modes", desc: "Solo · Duel · Tour par tour" },
@@ -265,6 +278,10 @@ const Index = () => {
                 <span className="text-xs text-slate-500">{f.desc}</span>
               </div>
             ))}
+          </div>
+
+          <div className="absolute bottom-6 text-xs text-slate-500 font-medium">
+            This site is powered by Netlify
           </div>
         </div>
       </main>
@@ -382,26 +399,8 @@ const Index = () => {
                       </div>
                     )}
                     
-                    {/* Focus Mode & Sidebar Toggles */}
+                    {/* Focus Mode Toggle */}
                     <div className="ml-auto flex items-center gap-2">
-                      {!isFocusMode && (
-                        <>
-                          <button
-                            onClick={() => setIsLeftOpen(!isLeftOpen)}
-                            className="hidden lg:flex rounded-lg border border-white/10 bg-white/5 p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
-                            title={isLeftOpen ? "Réduire salons" : "Afficher salons"}
-                          >
-                            {isLeftOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
-                          </button>
-                          <button
-                            onClick={() => setIsRightOpen(!isRightOpen)}
-                            className="hidden lg:flex rounded-lg border border-white/10 bg-white/5 p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
-                            title={isRightOpen ? "Réduire chat" : "Afficher chat"}
-                          >
-                            {isRightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-                          </button>
-                        </>
-                      )}
                       <button
                         onClick={() => setIsFocusMode(!isFocusMode)}
                         className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
@@ -421,7 +420,7 @@ const Index = () => {
                     <p className="mt-1 text-sm text-slate-500">Partagez le lien de votre room</p>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center gap-6 xl:flex-row xl:items-start xl:justify-center min-w-0 max-w-full">
+                  <div className={`flex flex-col items-center gap-6 xl:flex-row xl:items-start xl:justify-center min-w-0 max-w-full ${isFocusMode ? "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" : ""}`}>
                     <div className="min-w-0 max-w-full">
                       <GameBoard
                         onCellClick={onCellClick}

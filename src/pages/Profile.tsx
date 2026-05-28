@@ -3,9 +3,13 @@ import { useParams, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { getUserProfile, followUser, unfollowUser, getAllUsers } from "@/lib/firestore";
 import { useUiStore } from "@/store/uiStore";
-import { ACHIEVEMENTS, TIER_COLORS, type UserProfile, type GameHistoryEntry } from "@/types";
-import { User, Trophy, Flame, Swords, ArrowLeft, UserPlus, UserMinus, Settings, Users } from "lucide-react";
+import { Trophy, Swords, Flame, Clock, CalendarDays, X, User, ArrowLeft, UserPlus, UserMinus, Settings, Users } from "lucide-react";
+import { ACHIEVEMENTS, TIER_COLORS, GRID_PRESETS, type UserProfile, type GameHistoryEntry } from "@/types";
+import { formatDistanceToNow } from "date-fns";
+import { fr } from "date-fns/locale";
+import { createEmptyGame, generateDuelBoard } from "@/lib/gameEngine";
 import { toast } from "sonner";
+import { subscribeUserPresence } from "@/lib/firestore";
 
 export default function Profile() {
   const { uid } = useParams();
@@ -15,6 +19,8 @@ export default function Profile() {
   const [allUsers, setAllUsers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"stats" | "history" | "social">("stats");
+  const [selectedGame, setSelectedGame] = useState<GameHistoryEntry | null>(null);
+  const [isOnline, setIsOnline] = useState(false);
 
   const targetUid = uid || myProfile?.uid;
   const isMe = myProfile?.uid === targetUid;
@@ -22,17 +28,28 @@ export default function Profile() {
   useEffect(() => {
     if (!targetUid) return;
     setLoading(true);
-    Promise.all([
-      getUserProfile(targetUid),
-      getAllUsers()
-    ]).then(([p, users]) => {
+    
+    const load = async () => {
+      const [p, users] = await Promise.all([
+        getUserProfile(targetUid),
+        getAllUsers()
+      ]);
       setProfile(p);
       const userMap: Record<string, string> = {};
       users.forEach(u => userMap[u.uid] = u.username);
       setAllUsers(userMap);
       setLoading(false);
-    });
-  }, [targetUid]);
+    };
+    
+    load();
+    
+    if (targetUid) {
+      const unsubPresence = subscribeUserPresence(targetUid, (status) => {
+        setIsOnline(status === "online");
+      });
+      return () => unsubPresence();
+    }
+  }, [targetUid, isMe, myProfile]);
 
   if (loading) {
     return (
@@ -104,8 +121,9 @@ export default function Profile() {
                   <User className="h-12 w-12" />
                 </div>
               )}
-              {/* Online indicator */}
-              <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-4 border-[#03070c] bg-green-500" title="En ligne" />
+              {isOnline && (
+                <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-4 border-[#03070c] bg-green-500" title="En ligne" />
+              )}
             </div>
             <div>
               <h1 className="text-4xl font-black text-white">{profile.username}</h1>
@@ -164,7 +182,6 @@ export default function Profile() {
 
         {activeTab === "stats" && (
           <div className="grid gap-6 md:grid-cols-[1fr_2fr]">
-            {/* Stats Sidebar */}
             <div className="space-y-6">
               <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
                 <div className="mb-4 flex items-center gap-2 text-white">
@@ -181,9 +198,14 @@ export default function Profile() {
                     <span className="font-mono text-xl font-black text-red-400">{totalLosses}</span>
                   </div>
                   <div className="h-px w-full bg-white/10" />
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Win Rate</span>
-                    <span className="text-lg font-bold text-cyan-300">{winRate}%</span>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Win Rate</span>
+                      <span className="text-lg font-bold text-cyan-300">{winRate}%</span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-900">
+                      <div className="h-full bg-cyan-400 transition-all" style={{ width: `${winRate}%` }} />
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1 text-slate-400"><Flame className="h-4 w-4 text-orange-400" /> Série max</span>
@@ -193,7 +215,6 @@ export default function Profile() {
               </section>
             </div>
 
-            {/* Achievements Grid */}
             <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
               <div className="mb-6 flex items-center gap-2 text-white">
                 <Swords className="h-5 w-5 text-cyan-300" />
@@ -240,23 +261,31 @@ export default function Profile() {
             ) : (
               <div className="space-y-3">
                 {[...profile.history].reverse().map((game) => (
-                  <div key={game.id} className="flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.02] p-4 transition hover:bg-white/[0.04]">
+                  <button 
+                    key={game.id} 
+                    onClick={() => setSelectedGame(game)}
+                    className="w-full flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.02] p-4 transition hover:bg-white/[0.06] hover:border-cyan-400/30 text-left"
+                  >
                     <div className="flex items-center gap-4">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-lg font-bold ${
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg font-bold ${
                         game.result === "won" ? "bg-emerald-400/20 text-emerald-400" : "bg-red-400/20 text-red-400"
                       }`}>
                         {game.result === "won" ? "V" : "D"}
                       </div>
                       <div>
-                        <p className="font-semibold text-white capitalize">{game.difficulty}</p>
-                        <p className="text-xs text-slate-500">{new Date(game.date).toLocaleString()}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white capitalize">{game.difficulty}</span>
+                          <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-medium uppercase text-slate-300">
+                            {game.mode}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-3 text-xs text-slate-500">
+                          <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {game.time}s</span>
+                          <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" /> {formatDistanceToNow(game.date, { addSuffix: true, locale: fr })}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-mono text-lg font-bold text-cyan-300">{game.time}s</p>
-                      <p className="text-xs uppercase tracking-widest text-slate-500">{game.mode}</p>
-                    </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -299,6 +328,74 @@ export default function Profile() {
           </div>
         )}
       </div>
+
+      {/* History Modal */}
+      {selectedGame && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl rounded-[2rem] border border-white/10 bg-slate-950 p-6 shadow-2xl overflow-hidden flex flex-col max-h-screen">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-white">
+                  Partie terminée {selectedGame.result === "won" ? "🏆" : "💥"}
+                </h2>
+                <p className="text-sm text-slate-400">
+                  Temps : {selectedGame.time}s • Difficulté : {selectedGame.difficulty}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedGame(null)}
+                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-auto rounded-xl bg-black/40 p-4 border border-white/5 flex items-center justify-center min-h-[300px]">
+              {(() => {
+                const config = GRID_PRESETS[selectedGame.difficulty] || { width: 10, height: 10, mines: 15 };
+                const cellSize = Math.min(30, Math.floor((window.innerWidth > 768 ? 500 : 280) / config.width));
+                
+                let board = createEmptyGame(config);
+                if (selectedGame.seed !== undefined && selectedGame.firstClick) {
+                  // We simulate the generation to place the mines
+                  board = generateDuelBoard(config, selectedGame.seed);
+                  // We don't reveal the whole board, we just show the mines so they can see the solution
+                  board.cells = board.cells.map(c => ({
+                    ...c,
+                    status: "revealed" // Reveal everything for the post-game static view
+                  }));
+                } else {
+                  return <p className="text-slate-500">Plateau non disponible pour cette partie ancienne.</p>;
+                }
+
+                return (
+                  <div
+                    className="mx-auto grid gap-[2px] rounded-lg bg-slate-800 p-[2px] shadow-2xl"
+                    style={{
+                      gridTemplateColumns: `repeat(${config.width}, ${cellSize}px)`,
+                      gridTemplateRows: `repeat(${config.height}, ${cellSize}px)`,
+                    }}
+                  >
+                    {board.cells.map((cell) => (
+                      <div
+                        key={cell.id}
+                        className={`flex items-center justify-center font-bold text-xs ${
+                          cell.hasMine 
+                            ? "bg-red-600/80 border border-red-700" 
+                            : "border border-slate-800/50 bg-[#1e2329]"
+                        }`}
+                        style={{ width: cellSize, height: cellSize }}
+                      >
+                        {cell.hasMine ? "✦" : cell.adjacentMines > 0 ? cell.adjacentMines : ""}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

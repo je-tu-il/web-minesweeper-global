@@ -54,23 +54,21 @@ const CellComponent = React.memo(({ cell, cellSize, isExploded, disabled, isGame
         color: isRevealed && !isMine && num > 0 ? NUMBER_COLORS[num] : undefined,
       }}
       className={[
-        "relative select-none font-black transition-all duration-100 flex items-center justify-center rounded-[4px]",
-        // 🔹 Case cachée : style classique 3D relevé 🔹
+        "relative select-none font-bold transition-colors duration-75 flex items-center justify-center rounded-[2px]",
+        // 🔹 Case cachée : style classique 3D relevé, simplifié 🔹
         !isRevealed && [
-          "border-t-[2px] border-l-[2px] border-b-[2px] border-r-[2px]",
-          "border-t-white/20 border-l-white/20 border-b-black/40 border-r-black/40",
-          "bg-gradient-to-br from-slate-600 to-slate-800 shadow-inner",
-          "hover:from-slate-500 hover:to-slate-700 hover:scale-[1.1] hover:z-10 hover:shadow-[0_0_15px_rgba(34,211,238,0.4)] hover:border-cyan-400/50",
-          "active:border-t-black/40 active:border-l-black/40 active:border-b-white/20 active:border-r-white/20 active:from-slate-700 active:to-slate-900",
+          "bg-slate-700 border-t-slate-500 border-l-slate-500 border-b-slate-900 border-r-slate-900",
+          "border-[2px]",
+          !disabled && "hover:bg-slate-600 active:border-t-slate-900 active:border-l-slate-900 active:border-b-slate-500 active:border-r-slate-500 active:bg-slate-800",
         ].join(" "),
-        // 🔹 Case révélée : style creux 🔹
-        isRevealed && !isMine && "border border-[#1a1a1a] bg-[#1e2329] shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]",
+        // 🔹 Case révélée : style creux, simplifié 🔹
+        isRevealed && !isMine && "border border-slate-800/50 bg-[#1e2329]",
         // 🔹 Mine explosée 🔹
-        isExploded && "!bg-red-600 !border-red-700 shadow-[0_0_20px_rgba(220,38,38,0.8)] z-20",
+        isExploded && "bg-red-600 border border-red-700 z-10",
         // 🔹 Mine révélée (game over) 🔹
-        isRevealed && isMine && !isExploded && "border border-[#1a1a1a] bg-[#2a1a1a] shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]",
+        isRevealed && isMine && !isExploded && "border border-slate-900 bg-[#2a1a1a]",
         // 🔹 Disabled 🔹
-        disabled ? "cursor-not-allowed opacity-75" : "cursor-pointer",
+        disabled ? "cursor-not-allowed opacity-80" : "cursor-pointer",
       ]
         .filter(Boolean)
         .join(" ")}

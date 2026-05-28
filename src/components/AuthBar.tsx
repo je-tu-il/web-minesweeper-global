@@ -71,8 +71,12 @@ export function AuthBar() {
         )}
 
         <div className="relative">
-          <Link to="/profile" className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-sm font-bold text-white transition hover:scale-105 hover:shadow-lg hover:shadow-cyan-400/20" title="Mon Profil">
-            {initial}
+          <Link to="/profile" className="grid h-9 w-9 overflow-hidden place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-sm font-bold text-white transition hover:scale-105 hover:shadow-lg hover:shadow-cyan-400/20" title="Mon Profil">
+            {userProfile.avatarUrl ? (
+              <img src={userProfile.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+            ) : (
+              initial
+            )}
           </Link>
           <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#03070c] bg-green-500" title="En ligne" />
         </div>
