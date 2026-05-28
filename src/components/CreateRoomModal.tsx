@@ -4,7 +4,7 @@ import { useUiStore } from "@/store/uiStore";
 import { useGameStore } from "@/store/gameStore";
 import { createRoom, joinRoom } from "@/lib/firestore";
 import { GRID_PRESETS, type RoomMode, type GridConfig } from "@/types";
-import { Crosshair, Swords, Clock, X, Settings2 } from "lucide-react";
+import { Crosshair, Swords, Clock, X, Settings2, ShieldCheck, HelpCircle } from "lucide-react";
 
 const modes: { value: RoomMode; label: string; desc: string; icon: typeof Crosshair }[] = [
   { value: "solo", label: "Solo", desc: "Seul contre le chronomètre", icon: Crosshair },
@@ -26,19 +26,23 @@ export function CreateRoomModal() {
   const [selectedMode, setSelectedMode] = useState<RoomMode>("solo");
   const [selectedDifficulty, setSelectedDifficulty] = useState("beginner");
   
-  const [customWidth, setCustomWidth] = useState(10);
-  const [customHeight, setCustomHeight] = useState(10);
-  const [customMines, setCustomMines] = useState(15);
+  const [customWidth, setCustomWidth] = useState("10");
+  const [customHeight, setCustomHeight] = useState("10");
+  const [customMines, setCustomMines] = useState("15");
+  const [pureLogic, setPureLogic] = useState(false);
   
   const [loading, setLoading] = useState(false);
 
   const config: GridConfig = useMemo(() => {
+    let finalConfig = GRID_PRESETS[selectedDifficulty];
     if (selectedDifficulty === "custom") {
-      const maxMines = Math.max(1, customWidth * customHeight - 9);
-      return { width: customWidth, height: customHeight, mines: Math.min(customMines, maxMines) };
+      const w = Math.max(5, Math.min(50, parseInt(customWidth) || 10));
+      const h = Math.max(5, Math.min(50, parseInt(customHeight) || 10));
+      const m = Math.max(1, Math.min(w * h - 9, parseInt(customMines) || 15));
+      finalConfig = { width: w, height: h, mines: m };
     }
-    return GRID_PRESETS[selectedDifficulty];
-  }, [selectedDifficulty, customWidth, customHeight, customMines]);
+    return { ...finalConfig, pureLogic };
+  }, [selectedDifficulty, customWidth, customHeight, customMines, pureLogic]);
 
   const handleCreate = async () => {
     if (!userProfile) return;
@@ -105,21 +109,27 @@ export function CreateRoomModal() {
         {/* Mode */}
         <p className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">Mode de jeu</p>
         <div className="mb-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
-          {modes.map((m) => (
-            <button
-              key={m.value}
-              onClick={() => setSelectedMode(m.value)}
-              className={`flex flex-col items-center gap-2 rounded-xl border p-3 transition ${
-                selectedMode === m.value
-                  ? "border-cyan-300/40 bg-cyan-300/10 text-cyan-100"
-                  : "border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20"
-              }`}
-            >
-              <m.icon className="h-5 w-5" />
-              <span className="text-sm font-semibold">{m.label}</span>
-              <span className="text-center text-[10px] leading-tight text-slate-500 hidden sm:block">{m.desc}</span>
-            </button>
-          ))}
+          {modes.map((m) => {
+            const isDisabled = m.value === "duel"; // Duel is disabled for now
+            return (
+              <button
+                key={m.value}
+                onClick={() => !isDisabled && setSelectedMode(m.value)}
+                disabled={isDisabled}
+                className={`flex flex-col items-center gap-2 rounded-xl border p-3 transition ${
+                  selectedMode === m.value
+                    ? "border-cyan-300/40 bg-cyan-300/10 text-cyan-100"
+                    : isDisabled 
+                      ? "border-white/5 bg-white/[0.01] text-slate-600 cursor-not-allowed opacity-50"
+                      : "border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20"
+                }`}
+              >
+                <m.icon className="h-5 w-5" />
+                <span className="text-sm font-semibold">{m.label} {isDisabled && "(Bientôt)"}</span>
+                <span className="text-center text-[10px] leading-tight text-slate-500 hidden sm:block">{m.desc}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Difficulté */}
@@ -153,7 +163,8 @@ export function CreateRoomModal() {
               </label>
               <input 
                 type="number" min="5" max="50" value={customWidth} 
-                onChange={(e) => setCustomWidth(Math.min(50, Math.max(5, parseInt(e.target.value) || 5)))}
+                onChange={(e) => setCustomWidth(e.target.value)}
+                onBlur={() => setCustomWidth(config.width.toString())}
                 className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white outline-none focus:border-cyan-300/50 focus:ring-1 focus:ring-cyan-300/50"
               />
             </div>
@@ -163,22 +174,47 @@ export function CreateRoomModal() {
               </label>
               <input 
                 type="number" min="5" max="50" value={customHeight} 
-                onChange={(e) => setCustomHeight(Math.min(50, Math.max(5, parseInt(e.target.value) || 5)))}
+                onChange={(e) => setCustomHeight(e.target.value)}
+                onBlur={() => setCustomHeight(config.height.toString())}
                 className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white outline-none focus:border-cyan-300/50 focus:ring-1 focus:ring-cyan-300/50"
               />
             </div>
             <div>
               <label className="flex justify-between text-xs font-semibold text-slate-400 mb-1">
-                <span>Mines (1-{Math.max(1, customWidth * customHeight - 9)})</span>
+                <span>Mines</span>
               </label>
               <input 
-                type="number" min="1" max={Math.max(1, customWidth * customHeight - 9)} value={customMines} 
-                onChange={(e) => setCustomMines(Math.min(Math.max(1, customWidth * customHeight - 9), Math.max(1, parseInt(e.target.value) || 1)))}
+                type="number" min="1" value={customMines} 
+                onChange={(e) => setCustomMines(e.target.value)}
+                onBlur={() => setCustomMines(config.mines.toString())}
                 className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white outline-none focus:border-red-400/50 focus:ring-1 focus:ring-red-400/50"
               />
             </div>
           </div>
         )}
+
+        {/* Options additionnelles */}
+        <div className="mb-5 flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.02] p-3">
+          <div className="flex flex-col">
+            <span className="flex items-center gap-1.5 text-sm font-bold text-white">
+              <ShieldCheck className="h-4 w-4 text-cyan-400" />
+              Mode Pure Logique
+            </span>
+            <span className="text-xs text-slate-500">Pas de hasard (1 chance sur 2). 100% logique.</span>
+          </div>
+          <button
+            onClick={() => setPureLogic(!pureLogic)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              pureLogic ? "bg-cyan-400" : "bg-slate-700"
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                pureLogic ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
 
         {/* Résumé */}
         <div className="mb-5 rounded-xl bg-white/[0.04] p-3 text-sm text-slate-400 text-center">

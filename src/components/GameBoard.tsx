@@ -1,7 +1,7 @@
 import { useGameStore } from "@/store/gameStore";
 import { resultLabel } from "@/lib/gameEngine";
 import { Flag, Timer, Zap, Trophy, Skull } from "lucide-react";
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useRef, useEffect, useState } from "react";
 import type { Cell } from "@/types";
 
 interface GameBoardProps {
@@ -9,6 +9,7 @@ interface GameBoardProps {
   onCellRightClick: (cellId: string) => void;
   disabled?: boolean;
   isSpectator?: boolean;
+  isFocusMode?: boolean;
 }
 
 /* Couleurs classiques du démineur pour les chiffres */
@@ -53,23 +54,23 @@ const CellComponent = React.memo(({ cell, cellSize, isExploded, disabled, isGame
         color: isRevealed && !isMine && num > 0 ? NUMBER_COLORS[num] : undefined,
       }}
       className={[
-        "relative select-none font-black transition-all duration-100",
-        // ── Case cachée : style classique 3D relevé ──
+        "relative select-none font-black transition-all duration-100 flex items-center justify-center rounded-[4px]",
+        // 🔹 Case cachée : style classique 3D relevé 🔹
         !isRevealed && [
           "border-t-[2px] border-l-[2px] border-b-[2px] border-r-[2px]",
-          "border-t-[#8a8a8a] border-l-[#8a8a8a] border-b-[#3a3a3a] border-r-[#3a3a3a]",
-          "bg-[#5a5a5a]",
-          "hover:bg-[#6a6a6a] hover:scale-[1.08] hover:z-10 hover:shadow-[0_0_12px_rgba(34,211,238,0.15)]",
-          "active:border-t-[#3a3a3a] active:border-l-[#3a3a3a] active:border-b-[#8a8a8a] active:border-r-[#8a8a8a] active:bg-[#4a4a4a]",
+          "border-t-white/20 border-l-white/20 border-b-black/40 border-r-black/40",
+          "bg-gradient-to-br from-slate-600 to-slate-800 shadow-inner",
+          "hover:from-slate-500 hover:to-slate-700 hover:scale-[1.1] hover:z-10 hover:shadow-[0_0_15px_rgba(34,211,238,0.4)] hover:border-cyan-400/50",
+          "active:border-t-black/40 active:border-l-black/40 active:border-b-white/20 active:border-r-white/20 active:from-slate-700 active:to-slate-900",
         ].join(" "),
-        // ── Case révélée : style creux ──
-        isRevealed && !isMine && "border border-[#2a2a2a] bg-[#3a3a3a]",
-        // ── Mine explosée ──
-        isExploded && "!bg-red-600 !border-red-700 shadow-lg shadow-red-600/50",
-        // ── Mine révélée (game over) ──
-        isRevealed && isMine && !isExploded && "border border-[#2a2a2a] bg-[#3a3a3a]",
-        // ── Disabled ──
-        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+        // 🔹 Case révélée : style creux 🔹
+        isRevealed && !isMine && "border border-[#1a1a1a] bg-[#1e2329] shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]",
+        // 🔹 Mine explosée 🔹
+        isExploded && "!bg-red-600 !border-red-700 shadow-[0_0_20px_rgba(220,38,38,0.8)] z-20",
+        // 🔹 Mine révélée (game over) 🔹
+        isRevealed && isMine && !isExploded && "border border-[#1a1a1a] bg-[#2a1a1a] shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]",
+        // 🔹 Disabled 🔹
+        disabled ? "cursor-not-allowed opacity-75" : "cursor-pointer",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -90,7 +91,7 @@ const CellComponent = React.memo(({ cell, cellSize, isExploded, disabled, isGame
   );
 });
 
-export function GameBoard({ onCellClick, onCellRightClick, disabled = false, isSpectator = false }: GameBoardProps) {
+export function GameBoard({ onCellClick, onCellRightClick, disabled = false, isSpectator = false, isFocusMode = false }: GameBoardProps) {
   const { game, timer } = useGameStore();
   const { cells, config, result, explodedCellId } = game;
 
@@ -104,8 +105,44 @@ export function GameBoard({ onCellClick, onCellRightClick, disabled = false, isS
   /* Taille de cellule adaptative : plus gros sur petites grilles */
   const cellSize = config.width <= 9 ? 42 : config.width <= 16 ? 34 : 28;
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [baseScale, setBaseScale] = useState(1);
+  const [zoomOffset, setZoomOffset] = useState(0); // Offset ajouté en mode focus
+
+  const scale = Math.max(0.1, baseScale + zoomOffset);
+
+  // ResizeObserver pour adapter l'échelle
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const availableWidth = entry.contentRect.width;
+        // gap = 2px
+        const boardWidth = config.width * cellSize + (config.width - 1) * 2;
+        if (boardWidth > availableWidth) {
+          setBaseScale(availableWidth / boardWidth);
+        } else {
+          setBaseScale(1);
+        }
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [config.width, cellSize]);
+
+  // Handle zoom in focus mode
+  const handleWheel = (e: React.WheelEvent) => {
+    if (!isFocusMode) return;
+    e.preventDefault();
+    const delta = e.deltaY * -0.001;
+    setZoomOffset((prev) => Math.min(2, Math.max(-baseScale + 0.2, prev + delta)));
+  };
+
   return (
-    <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/40 backdrop-blur-xl">
+    <section 
+      className={`rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/40 backdrop-blur-xl w-full ${isFocusMode ? "overflow-auto touch-none" : ""}`}
+      onWheel={isFocusMode ? handleWheel : undefined}
+    >
       {/* Stats bar */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-4">
@@ -143,8 +180,8 @@ export function GameBoard({ onCellClick, onCellRightClick, disabled = false, isS
         )}
       </div>
 
-      {/* Grid — scroll horizontal sur grandes grilles */}
-      <div className="relative overflow-x-auto pb-2">
+      {/* Grid */}
+      <div className="relative flex justify-center w-full" ref={containerRef}>
         {disabled && game.result === "playing" && !isSpectator && (
           <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-slate-950/20 backdrop-blur-[1px]">
             <div className="rounded-full bg-slate-900/80 px-4 py-2 text-sm font-bold text-white shadow-xl backdrop-blur">
@@ -154,12 +191,13 @@ export function GameBoard({ onCellClick, onCellRightClick, disabled = false, isS
         )}
 
         <div
-          className="mx-auto"
+          className={`mx-auto transition-transform duration-200 ${isFocusMode ? "origin-center" : "origin-top"}`}
           style={{
             display: "grid",
             gridTemplateColumns: `repeat(${config.width}, ${cellSize}px)`,
-            gap: "1px",
+            gap: "2px",
             width: "fit-content",
+            transform: `scale(${scale})`,
           }}
         >
           {cells.map((cell) => (

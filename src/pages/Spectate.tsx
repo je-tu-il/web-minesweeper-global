@@ -17,16 +17,28 @@ export default function Spectate() {
     const unsub = subscribeRoom(roomId, (r) => {
       setRoom(r);
       if (r) {
-        const firstPlayer = Object.values(r.players)[0];
+        // Merge states from all players
+        const allRevealed = new Set<string>();
+        const allFlagged = new Set<string>();
+        const allQuestion = new Set<string>();
+        let explodedId: string | undefined;
+
+        Object.values(r.players).forEach(p => {
+          p.revealedCells?.forEach(c => allRevealed.add(c));
+          p.flaggedCells?.forEach(c => allFlagged.add(c));
+          p.questionCells?.forEach(c => allQuestion.add(c));
+          if (p.explodedCellId) explodedId = p.explodedCellId;
+        });
+
         // Restaurer l'état du jeu localement à chaque mise à jour (lecture seule)
         restoreFromSync(
           r.gridConfig,
           r.seed,
           r.mode,
-          firstPlayer?.revealedCells || [],
-          firstPlayer?.flaggedCells || [],
-          firstPlayer?.questionCells || [],
-          firstPlayer?.explodedCellId,
+          Array.from(allRevealed),
+          Array.from(allFlagged),
+          Array.from(allQuestion),
+          explodedId,
           r.firstClick
         );
       }

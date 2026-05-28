@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUiStore } from "@/store/uiStore";
 import { useGameStore } from "@/store/gameStore";
-import { subscribeRoom, updateRoom, updateStats, syncGameState, submitScore, addAchievements } from "@/lib/firestore";
+import { subscribeRoom, updateRoom, updateStats, syncGameState, submitScore, addAchievements, addGameToHistory } from "@/lib/firestore";
 import { checkAchievements } from "@/lib/achievements";
 import { AuthBar } from "@/components/AuthBar";
 import { GameBoard } from "@/components/GameBoard";
@@ -13,7 +13,7 @@ import { PlayerStats } from "@/components/PlayerStats";
 import { Leaderboard } from "@/components/Leaderboard";
 import { MiniBoard } from "@/components/MiniBoard";
 import { AchievementToast } from "@/components/AchievementToast";
-import { Bomb, Swords, Clock, Crosshair, MessageCircle, LayoutGrid, Maximize2, Minimize2 } from "lucide-react";
+import { Bomb, Swords, Clock, Crosshair, MessageCircle, LayoutGrid, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Flag } from "lucide-react";
 import { toast } from "sonner";
 import type { Room } from "@/types";
 
@@ -28,6 +28,8 @@ const Index = () => {
 
   const [newAchievements, setNewAchievements] = useState<string[]>([]);
   const [isFocusMode, setIsFocusMode] = useState(false);
+  const [isLeftOpen, setIsLeftOpen] = useState(true);
+  const [isRightOpen, setIsRightOpen] = useState(true);
 
   // Timer
   useEffect(() => {
@@ -91,6 +93,16 @@ const Index = () => {
         if (game.config.width === 9 && game.config.height === 9 && game.config.mines === 10) diffKey = "beginner";
         else if (game.config.width === 16 && game.config.height === 16 && game.config.mines === 40) diffKey = "intermediate";
         else if (game.config.width === 30 && game.config.height === 16 && game.config.mines === 99) diffKey = "expert";
+        
+        // Ajouter à l'historique
+        addGameToHistory(userProfile.uid, {
+          id: crypto.randomUUID(),
+          mode: room ? room.mode : "solo",
+          difficulty: diffKey,
+          result: game.result as "won" | "lost",
+          time: timer,
+          date: Date.now()
+        }).catch(console.error);
         
         submitScore({
           uid: userProfile.uid,
@@ -196,6 +208,16 @@ const Index = () => {
     }
   };
 
+  const handleSurrender = () => {
+    useGameStore.setState({
+      game: {
+        ...game,
+        result: "lost"
+      },
+      isTimerRunning: false
+    });
+  };
+
   // ── Loading ──
   if (isLoading) {
     return (
@@ -293,13 +315,21 @@ const Index = () => {
           </button>
         </div>
 
-        <div className={`grid gap-4 ${isFocusMode ? "grid-cols-1" : "lg:grid-cols-[320px_minmax(0,1fr)_320px]"}`}>
+        <div className={`grid gap-4 ${isFocusMode ? "grid-cols-1" : `lg:grid-cols-[${isLeftOpen ? "320px" : "auto"}_minmax(0,1fr)_${isRightOpen ? "320px" : "auto"}]`}`}>
           {/* Left: Lobby */}
           {!isFocusMode && (
             <aside className={`space-y-4 ${activePanel !== "lobby" ? "hidden lg:block" : ""}`}>
-              <LobbyPanel />
-              <PlayerStats profile={userProfile} />
-              <Leaderboard />
+              {isLeftOpen ? (
+                <>
+                  <LobbyPanel />
+                  <PlayerStats profile={userProfile} />
+                  <Leaderboard />
+                </>
+              ) : (
+                <div className="h-full w-12 flex flex-col items-center py-4 rounded-[2rem] border border-white/10 bg-slate-950/70 backdrop-blur-xl">
+                  {/* Collapsed view, just taking minimal space */}
+                </div>
+              )}
             </aside>
           )}
 
@@ -352,14 +382,34 @@ const Index = () => {
                       </div>
                     )}
                     
-                    {/* Focus Mode Toggle */}
-                    <button
-                      onClick={() => setIsFocusMode(!isFocusMode)}
-                      className="ml-auto rounded-lg border border-white/10 bg-white/5 p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
-                      title={isFocusMode ? "Quitter le mode focus" : "Mode focus"}
-                    >
-                      {isFocusMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                    </button>
+                    {/* Focus Mode & Sidebar Toggles */}
+                    <div className="ml-auto flex items-center gap-2">
+                      {!isFocusMode && (
+                        <>
+                          <button
+                            onClick={() => setIsLeftOpen(!isLeftOpen)}
+                            className="hidden lg:flex rounded-lg border border-white/10 bg-white/5 p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+                            title={isLeftOpen ? "Réduire salons" : "Afficher salons"}
+                          >
+                            {isLeftOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+                          </button>
+                          <button
+                            onClick={() => setIsRightOpen(!isRightOpen)}
+                            className="hidden lg:flex rounded-lg border border-white/10 bg-white/5 p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+                            title={isRightOpen ? "Réduire chat" : "Afficher chat"}
+                          >
+                            {isRightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+                          </button>
+                        </>
+                      )}
+                      <button
+                        onClick={() => setIsFocusMode(!isFocusMode)}
+                        className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+                        title={isFocusMode ? "Quitter le mode focus" : "Mode focus"}
+                      >
+                        {isFocusMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -377,6 +427,7 @@ const Index = () => {
                         onCellClick={onCellClick}
                         onCellRightClick={onCellRightClick}
                         disabled={!isMyTurn}
+                        isFocusMode={isFocusMode}
                       />
                     </div>
                     
@@ -401,8 +452,8 @@ const Index = () => {
                   </div>
                 )}
 
-                {/* Game over actions */}
-                {game.result !== "playing" && (
+                {/* Game actions */}
+                {game.result !== "playing" ? (
                   <div className="flex justify-center gap-3">
                     <button
                       onClick={handleNewGame}
@@ -417,6 +468,16 @@ const Index = () => {
                       Retour au lobby
                     </button>
                   </div>
+                ) : (
+                  <div className="flex justify-center gap-3">
+                    <button
+                      onClick={handleSurrender}
+                      className="flex items-center gap-2 rounded-xl border border-red-400/25 bg-red-400/10 px-4 py-2 text-sm font-medium text-red-300 transition hover:bg-red-400/20"
+                    >
+                      <Flag className="h-4 w-4" />
+                      Abandonner
+                    </button>
+                  </div>
                 )}
               </div>
             )}
@@ -425,11 +486,17 @@ const Index = () => {
           {/* Right: Chat */}
           {!isFocusMode && (
             <aside className={`${activePanel !== "game" || !selectedRoomId ? "hidden lg:block" : ""}`}>
-              {selectedRoomId ? (
-                <RoomChat roomId={selectedRoomId} />
+              {isRightOpen ? (
+                selectedRoomId ? (
+                  <RoomChat roomId={selectedRoomId} />
+                ) : (
+                  <div className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-4 text-center text-sm text-slate-500 backdrop-blur-xl">
+                    Rejoignez une room pour accéder au chat.
+                  </div>
+                )
               ) : (
-                <div className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-4 text-center text-sm text-slate-500 backdrop-blur-xl">
-                  Rejoignez une room pour accéder au chat.
+                <div className="h-full w-12 flex flex-col items-center py-4 rounded-[2rem] border border-white/10 bg-slate-950/70 backdrop-blur-xl">
+                  {/* Collapsed view, just taking minimal space */}
                 </div>
               )}
             </aside>

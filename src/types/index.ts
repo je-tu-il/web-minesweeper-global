@@ -59,7 +59,17 @@ export interface UserProfile {
   achievements: string[]; // IDs des succès débloqués
   friends: string[]; // UIDs des gens suivis
   following: string[]; // UIDs des gens qu'on suit
+  history?: GameHistoryEntry[]; // Historique des parties
   createdAt: number;
+}
+
+export interface GameHistoryEntry {
+  id: string;
+  mode: RoomMode;
+  difficulty: string; // ex: "beginner", "custom"
+  result: GameResult; // "won" | "lost"
+  time: number; // secondes
+  date: number; // timestamp
 }
 
 /* ── Grid ── */
@@ -68,6 +78,7 @@ export interface GridConfig {
   width: number;
   height: number;
   mines: number;
+  pureLogic?: boolean;
 }
 
 export const GRID_PRESETS: Record<string, GridConfig & { label: string }> = {

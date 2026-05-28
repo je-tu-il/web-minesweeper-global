@@ -176,8 +176,13 @@ export function LobbyPanel() {
                 <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-auto">
                   {(canJoin || isInRoom) && (
                     <button
-                      onClick={() => handleJoin(room)}
-                      className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1.5 text-xs font-medium text-cyan-200 transition hover:bg-cyan-300/20"
+                      onClick={() => isInRoom ? null : handleJoin(room)}
+                      disabled={isInRoom}
+                      className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+                        isInRoom
+                          ? "border-slate-500/20 bg-slate-500/10 text-slate-500 cursor-not-allowed"
+                          : "border-cyan-300/20 bg-cyan-300/10 text-cyan-200 hover:bg-cyan-300/20"
+                      }`}
                     >
                       {isInRoom ? (
                         "Reprendre"

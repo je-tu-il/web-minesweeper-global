@@ -75,6 +75,11 @@ export async function addAchievements(uid: string, achievementIds: string[]): Pr
   await updateDoc(ref, { achievements: arrayUnion(...achievementIds) });
 }
 
+export async function addGameToHistory(uid: string, entry: import("@/types").GameHistoryEntry): Promise<void> {
+  const ref = doc(firestore, "users", uid);
+  await updateDoc(ref, { history: arrayUnion(entry) });
+}
+
 /* ================================================================
    Follow system (unilatéral)
    ================================================================ */
