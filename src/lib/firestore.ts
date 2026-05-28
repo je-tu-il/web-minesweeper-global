@@ -15,7 +15,7 @@ import {
   limit,
   orderBy,
 } from "firebase/firestore";
-import { ref as rtdbRef, remove, onValue } from "firebase/database";
+import { ref as rtdbRef, remove, onValue, onDisconnect, set } from "firebase/database";
 import { firestore, rtdb } from "./firebase";
 import type { UserProfile, Room, RoomPlayer, LeaderboardEntry, LiveRoom } from "@/types";
 import { GRID_PRESETS } from "@/types";

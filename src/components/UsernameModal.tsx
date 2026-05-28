@@ -12,13 +12,12 @@ export function UsernameModal() {
   const [avatarUrl, setAvatarUrl] = useState(userProfile?.avatarUrl || "");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!showUsernameModal) return null;
 
   // Si l'utilisateur n'a pas de pseudo, il DOIT en choisir un (pas de bouton fermer)
   const mustChooseUsername = !userProfile?.username;
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const validate = (value: string): string => {
     if (value.length < 3) return "Minimum 3 caractères pour le pseudo";
