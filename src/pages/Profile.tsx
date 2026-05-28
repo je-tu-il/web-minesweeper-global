@@ -104,8 +104,9 @@ export default function Profile() {
   // Calculer l'évolution du winrate sur les 20 dernières parties
   const history = profile.history || [];
   const recentHistory = [...history].sort((a, b) => a.date - b.date).slice(-20);
-  let tempWins = totalWins - recentHistory.filter(g => g.result === "won").length;
-  let tempTotal = (totalWins + totalLosses) - recentHistory.length;
+  
+  let tempWins = Math.max(0, totalWins - recentHistory.filter(g => g.result === "won").length);
+  let tempTotal = Math.max(0, (totalWins + totalLosses) - recentHistory.length);
   
   const winrateData = recentHistory.map(g => {
     tempTotal++;
@@ -356,7 +357,7 @@ export default function Profile() {
                     <h2 className="text-lg font-bold">Succès Majeurs (Paliers)</h2>
                   </div>
                   
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                     {CATEGORIZED_ACHIEVEMENTS.map((cat) => (
                       <div key={cat.title} className="rounded-2xl border border-white/5 bg-white/[0.02] p-5 flex flex-col justify-between">
                         <div>
@@ -366,7 +367,7 @@ export default function Profile() {
                           </div>
                           <p className="text-xs text-slate-400 mb-4">{cat.desc}</p>
                         </div>
-                        <div className="flex gap-2 border-t border-white/5 pt-3">
+                        <div className={`grid ${cat.tiers.length === 4 ? "grid-cols-4" : "grid-cols-3"} gap-1.5 border-t border-white/5 pt-3`}>
                           {cat.tiers.map((t) => {
                             const hasAch = profile.achievements?.includes(t.id);
                             const tierColor = TIER_COLORS[t.tier];
@@ -374,7 +375,7 @@ export default function Profile() {
                             return (
                               <div
                                 key={t.id}
-                                className={`flex-1 flex flex-col items-center p-2 rounded-xl border transition-all ${
+                                className={`flex flex-col items-center p-2 rounded-xl border transition-all ${
                                   hasAch
                                     ? "bg-slate-900/60 border-white/10 scale-100 shadow-[0_0_10px_rgba(255,255,255,0.02)]"
                                     : "border-transparent bg-white/[0.01] opacity-30 grayscale"

@@ -120,8 +120,15 @@ const Index = () => {
       const room = roomRef.current;
       const won = game.result === "won";
       
-      // Mettre à jour les stats
-      updateStats(userProfile.uid, won, timer);
+      const mockRoomForHistory = room || {
+        mode: "solo" as const,
+        gridConfig: game.config,
+        seed: 0,
+        players: {}
+      } as Room;
+
+      // Ajouter à l'historique de manière universelle (met à jour aussi les stats de façon unifiée)
+      addGameToHistory(userProfile.uid, mockRoomForHistory, game, timer).catch(console.error);
 
       // Vérifier les succès
       const mode = room ? room.mode : "solo";
@@ -132,22 +139,12 @@ const Index = () => {
       }
 
       // Soumettre au leaderboard si victoire solo et pas custom
-      if (won && room?.mode === "solo") {
+      if (won && mockRoomForHistory.mode === "solo") {
         // Déterminer la difficulté en fonction de la taille
         let diffKey = "custom";
         if (game.config.width === 9 && game.config.height === 9 && game.config.mines === 10) diffKey = "beginner";
         else if (game.config.width === 16 && game.config.height === 16 && game.config.mines === 40) diffKey = "intermediate";
         else if (game.config.width === 30 && game.config.height === 16 && game.config.mines === 99) diffKey = "expert";
-        
-        // Ajouter à l'historique
-        addGameToHistory(userProfile.uid, {
-          id: crypto.randomUUID(),
-          mode: room ? room.mode : "solo",
-          difficulty: diffKey,
-          result: game.result as "won" | "lost",
-          time: timer,
-          date: Date.now()
-        }).catch(console.error);
         
         if (diffKey !== "custom") {
           submitScore({
@@ -159,7 +156,8 @@ const Index = () => {
             date: Date.now()
           }).then(() => {
             toast.success(`Score de ${timer}s ajouté au Leaderboard !`);
-          }).catch(() => {
+          }).catch((err) => {
+            console.error("Score submission error:", err);
             toast.error("Erreur lors de la soumission du score.");
           });
         }

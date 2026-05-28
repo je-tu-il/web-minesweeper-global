@@ -58,6 +58,7 @@ export async function addGameToHistory(uid: string, room: Room, game: any, time:
     stats.totalLosses++;
     stats.winStreak = 0;
   }
+  stats.playTime = (stats.playTime || 0) + time;
   
   await updateDoc(ref, {
     history: [entry, ...history].slice(0, 50), // keep last 50
