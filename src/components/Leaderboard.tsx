@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { subscribeLeaderboard } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { GRID_PRESETS, type LeaderboardEntry } from "@/types";
-import { Clock, Crown, Medal } from "lucide-react";
+import { Clock, Crown, Medal, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useUiStore } from "@/store/uiStore";
 
 const DIFFICULTIES = ["beginner", "intermediate", "expert"] as const;
 const LABELS: Record<string, string> = {
@@ -70,9 +71,20 @@ export function Leaderboard() {
                   {rankIcon || <span className="text-slate-500">{i + 1}</span>}
                 </div>
                 {/* Pseudo */}
-                <Link to={`/profile/${entry.uid}`} className={`flex-1 truncate text-sm font-medium hover:underline ${isMe ? "text-cyan-200" : "text-white"}`}>
-                  {entry.username}
-                </Link>
+                <div className="flex-1 flex items-center gap-2 overflow-hidden">
+                  <Link to={`/profile/${entry.uid}`} className={`truncate text-sm font-medium hover:underline ${isMe ? "text-cyan-200" : "text-white"}`}>
+                    {entry.username}
+                  </Link>
+                  {!isMe && userProfile && (
+                    <button
+                      onClick={() => useUiStore.getState().setActivePrivateChat({ uid: entry.uid, username: entry.username })}
+                      className="text-slate-500 hover:text-cyan-300 transition"
+                      title="Discuter"
+                    >
+                      <MessageCircle className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
                 {/* Temps */}
                 <div className="flex items-center gap-1 text-sm">
                   <Clock className="h-3 w-3 text-slate-500" />

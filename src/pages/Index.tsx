@@ -8,6 +8,7 @@ import { AuthBar } from "@/components/AuthBar";
 import { GameBoard } from "@/components/GameBoard";
 import { LobbyPanel } from "@/components/LobbyPanel";
 import { RoomChat } from "@/components/RoomChat";
+import { GlobalChat } from "@/components/GlobalChat";
 import { CreateRoomModal } from "@/components/CreateRoomModal";
 import { PlayerStats } from "@/components/PlayerStats";
 import { Leaderboard } from "@/components/Leaderboard";
@@ -64,6 +65,35 @@ const Index = () => {
           initTurnBasedGame(room.gridConfig, isBanned);
         }
       }
+
+      // Sync opponent's state to local board (if shared board)
+      if (room.status === "playing" || room.status === "finished") {
+        const isSharedBoard = room.mode === "turn-based" || (room.mode === "duel" && room.duelMode !== "separate");
+        if (isSharedBoard) {
+          const myUid = userProfile.uid;
+          const otherPlayers = Object.values(room.players).filter(p => p.uid !== myUid);
+          if (otherPlayers.length > 0) {
+            const allRevealed = new Set<string>();
+            const allFlagged = new Set<string>();
+            const allQuestion = new Set<string>();
+            let explodedId: string | undefined;
+
+            otherPlayers.forEach(p => {
+              p.revealedCells?.forEach(c => allRevealed.add(c));
+              p.flaggedCells?.forEach(c => allFlagged.add(c));
+              p.questionCells?.forEach(c => allQuestion.add(c));
+              if (p.explodedCellId) explodedId = p.explodedCellId;
+            });
+
+            useGameStore.getState().mergeOpponentState(
+              Array.from(allRevealed),
+              Array.from(allFlagged),
+              Array.from(allQuestion),
+              explodedId
+            );
+          }
+        }
+      }
     });
     return unsub;
   }, [selectedRoomId, userProfile, isBanned, initDuelGame, initTurnBasedGame]);
@@ -76,7 +106,7 @@ const Index = () => {
       const won = game.result === "won";
       
       // Mettre à jour les stats
-      updateStats(userProfile.uid, won);
+      updateStats(userProfile.uid, won, timer);
 
       // Vérifier les succès
       const mode = room ? room.mode : "solo";
@@ -86,7 +116,7 @@ const Index = () => {
         setNewAchievements(unlocked);
       }
 
-      // Soumettre au leaderboard si victoire solo
+      // Soumettre au leaderboard si victoire solo et pas custom
       if (won && room?.mode === "solo") {
         // Déterminer la difficulté en fonction de la taille
         let diffKey = "custom";
@@ -104,18 +134,20 @@ const Index = () => {
           date: Date.now()
         }).catch(console.error);
         
-        submitScore({
-          uid: userProfile.uid,
-          username: userProfile.username,
-          time: timer,
-          difficulty: diffKey,
-          gridConfig: game.config,
-          date: Date.now()
-        }).then(() => {
-          if (diffKey !== "custom") toast.success(`Score de ${timer}s ajouté au Leaderboard !`);
-        }).catch(() => {
-          toast.error("Erreur lors de la soumission du score.");
-        });
+        if (diffKey !== "custom") {
+          submitScore({
+            uid: userProfile.uid,
+            username: userProfile.username,
+            time: timer,
+            difficulty: diffKey,
+            gridConfig: game.config,
+            date: Date.now()
+          }).then(() => {
+            toast.success(`Score de ${timer}s ajouté au Leaderboard !`);
+          }).catch(() => {
+            toast.error("Erreur lors de la soumission du score.");
+          });
+        }
       }
 
       // Update room
@@ -146,7 +178,7 @@ const Index = () => {
   // Helper pour sync Firestore
   const pushGameStateToFirestore = (newGame: typeof game) => {
     if (!selectedRoomId || !userProfile) return;
-    const revealed = newGame.cells.filter(c => c.status === "revealed").map(c => c.id);
+    const revealed = newGame.cells.filter(c => c.status === "revealed" && !c.hasMine).map(c => c.id);
     const flagged = newGame.cells.filter(c => c.mark === "flag").map(c => c.id);
     const question = newGame.cells.filter(c => c.mark === "question").map(c => c.id);
     syncGameState(selectedRoomId, userProfile.uid, revealed, flagged, question, newGame.explodedCellId);
@@ -191,6 +223,12 @@ const Index = () => {
   );
 
   const handleBackToLobby = () => {
+    const room = roomRef.current;
+    if (room && (room.status === "finished" || room.mode === "solo")) {
+      import("@/lib/firestore").then(({ deleteRoom }) => {
+        deleteRoom(selectedRoomId!).catch(() => {});
+      });
+    }
     setSelectedRoomId(null);
     setActivePanel("lobby");
   };
@@ -332,13 +370,16 @@ const Index = () => {
           </button>
         </div>
 
-        <div className={`grid gap-4 ${isFocusMode ? "grid-cols-1" : `lg:grid-cols-[${isLeftOpen ? "320px" : "auto"}_minmax(0,1fr)_${isRightOpen ? "320px" : "auto"}]`}`}>
+        <div className={`grid gap-4 ${isFocusMode ? "grid-cols-1" : `lg:grid-cols-[${isLeftOpen ? "320px" : "auto"}_minmax(0,1fr)]`}`}>
           {/* Left: Lobby */}
           {!isFocusMode && (
             <aside className={`space-y-4 ${activePanel !== "lobby" ? "hidden lg:block" : ""}`}>
               {isLeftOpen ? (
                 <>
                   <LobbyPanel />
+                  <div className="h-[400px]">
+                    <GlobalChat />
+                  </div>
                   <PlayerStats profile={userProfile} />
                   <Leaderboard />
                 </>
@@ -430,8 +471,8 @@ const Index = () => {
                       />
                     </div>
                     
-                    {/* Opponent MiniMap in Duel */}
-                    {room?.mode === "duel" && opponentInfo && (
+                    {/* Opponent MiniMap in Duel (Separate only) */}
+                    {room?.mode === "duel" && room.duelMode === "separate" && opponentInfo && (
                       <div className="flex flex-col items-center gap-3 rounded-[2rem] border border-white/10 bg-slate-950/40 p-5 backdrop-blur-xl">
                         <div className="flex items-center gap-2">
                           <span className="relative flex h-3 w-3">
@@ -478,28 +519,20 @@ const Index = () => {
                     </button>
                   </div>
                 )}
+                
+                {/* Chat en dessous de la grille */}
+                {!isFocusMode && (
+                  <div className="mt-6">
+                    <RoomChat roomId={selectedRoomId!} />
+                  </div>
+                )}
               </div>
             )}
           </div>
+        </div>
 
-          {/* Right: Chat */}
-          {!isFocusMode && (
-            <aside className={`${activePanel !== "game" || !selectedRoomId ? "hidden lg:block" : ""}`}>
-              {isRightOpen ? (
-                selectedRoomId ? (
-                  <RoomChat roomId={selectedRoomId} />
-                ) : (
-                  <div className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-4 text-center text-sm text-slate-500 backdrop-blur-xl">
-                    Rejoignez une room pour accéder au chat.
-                  </div>
-                )
-              ) : (
-                <div className="h-full w-12 flex flex-col items-center py-4 rounded-[2rem] border border-white/10 bg-slate-950/70 backdrop-blur-xl">
-                  {/* Collapsed view, just taking minimal space */}
-                </div>
-              )}
-            </aside>
-          )}
+        <div className="mt-8 text-center text-xs text-slate-500 font-medium">
+          This site is powered by Netlify
         </div>
       </div>
     </main>

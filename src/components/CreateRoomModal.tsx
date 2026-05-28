@@ -24,6 +24,7 @@ export function CreateRoomModal() {
   const { initSoloGame, initDuelGame, initTurnBasedGame } = useGameStore();
 
   const [selectedMode, setSelectedMode] = useState<RoomMode>("solo");
+  const [duelMode, setDuelMode] = useState<"shared" | "separate">("shared");
   const [selectedDifficulty, setSelectedDifficulty] = useState("beginner");
   
   const [customWidth, setCustomWidth] = useState("10");
@@ -65,6 +66,7 @@ export function CreateRoomModal() {
         createdAt: Date.now(),
         maxPlayers,
         winner: null,
+        ...(selectedMode === "duel" && { duelMode: duelMode }),
       });
 
       // Auto-join
@@ -133,6 +135,36 @@ export function CreateRoomModal() {
             );
           })}
         </div>
+
+        {selectedMode === "duel" && (
+          <div className="mb-6 rounded-xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Type de Duel</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDuelMode("shared")}
+                className={`flex-1 flex flex-col items-center gap-1.5 rounded-lg border p-3 transition ${
+                  duelMode === "shared"
+                    ? "border-cyan-300/40 bg-cyan-300/10 text-cyan-100"
+                    : "border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20"
+                }`}
+              >
+                <span className="text-sm font-semibold">Même grille</span>
+                <span className="text-center text-[10px] text-slate-500">Bataille Royale</span>
+              </button>
+              <button
+                onClick={() => setDuelMode("separate")}
+                className={`flex-1 flex flex-col items-center gap-1.5 rounded-lg border p-3 transition ${
+                  duelMode === "separate"
+                    ? "border-amber-300/40 bg-amber-300/10 text-amber-100"
+                    : "border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20"
+                }`}
+              >
+                <span className="text-sm font-semibold">Côte à côte</span>
+                <span className="text-center text-[10px] text-slate-500">Course de vitesse</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Difficulté */}
         <p className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">Difficulté</p>

@@ -34,6 +34,8 @@ export function checkAchievements(
     return preset.width === config.width && preset.height === config.height && preset.mines === config.mines;
   };
 
+  const isDefaultMap = matchesPreset("beginner") || matchesPreset("intermediate") || matchesPreset("expert");
+
   if (matchesPreset("beginner")) unlock("win_beginner");
   if (matchesPreset("intermediate")) unlock("win_intermediate");
   if (matchesPreset("expert")) unlock("win_expert");
@@ -43,19 +45,28 @@ export function checkAchievements(
     unlock("win_custom_hard");
   }
 
-  // ── Puriste — gagner sans drapeau ──
-  if (!gameState.flagsUsed) {
-    unlock("no_flag");
+  // ── Seuls les maps par défaut débloquent les autres succès (Puriste, Speed, Séries) ──
+  if (isDefaultMap) {
+    // ── Puriste — gagner sans drapeau ──
+    if (!gameState.flagsUsed) {
+      unlock("no_flag");
+    }
+
+    // ── Speed ──
+    if (timer <= 30) unlock("speed_30");
+    if (timer <= 10) unlock("speed_10");
+
+    // ── Win streaks (le streak est déjà incrémenté dans le profile) ──
+    const newStreak = (profile.stats.winStreak || 0) + 1; // +1 car pas encore persisté
+    if (newStreak >= 3) unlock("win_streak_3");
+    if (newStreak >= 10) unlock("win_streak_10");
   }
 
-  // ── Speed ──
-  if (timer <= 30) unlock("speed_30");
-  if (timer <= 10) unlock("speed_10");
-
-  // ── Win streaks (le streak est déjà incrémenté dans le profile) ──
-  const newStreak = (profile.stats.winStreak || 0) + 1; // +1 car pas encore persisté
-  if (newStreak >= 3) unlock("win_streak_3");
-  if (newStreak >= 10) unlock("win_streak_10");
+  // Temps de jeu
+  const playTime = (profile.stats.playTime || 0) + timer;
+  if (playTime >= 3600) unlock("playtime_1h");
+  if (playTime >= 36000) unlock("playtime_10h");
+  if (playTime >= 360000) unlock("playtime_100h");
 
   // ── Social ──
   if (mode === "duel") unlock("first_duel_win");

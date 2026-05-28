@@ -81,18 +81,20 @@ export async function getAllUsers(): Promise<UserProfile[]> {
   return snap.docs.map((d) => d.data() as UserProfile);
 }
 
-export async function updateStats(uid: string, won: boolean): Promise<void> {
+export async function updateStats(uid: string, won: boolean, playTime: number = 0): Promise<void> {
   const ref = doc(firestore, "users", uid);
   if (won) {
     await updateDoc(ref, {
       "stats.totalWins": increment(1),
       "stats.winStreak": increment(1),
+      "stats.playTime": increment(playTime),
     });
     // Mettre à jour bestWinStreak si nécessaire (côté client, après lecture)
   } else {
     await updateDoc(ref, {
       "stats.totalLosses": increment(1),
       "stats.winStreak": 0,
+      "stats.playTime": increment(playTime),
     });
   }
 }
@@ -109,6 +111,7 @@ export async function resetUserStats(uid: string): Promise<void> {
     "stats.totalLosses": 0,
     "stats.winStreak": 0,
     "stats.bestWinStreak": 0,
+    "stats.playTime": 0,
   });
 }
 
@@ -116,6 +119,14 @@ export async function addAchievements(uid: string, achievementIds: string[]): Pr
   if (achievementIds.length === 0) return;
   const ref = doc(firestore, "users", uid);
   await updateDoc(ref, { achievements: arrayUnion(...achievementIds) });
+}
+
+export async function deleteUserProfile(uid: string): Promise<void> {
+  await deleteDoc(doc(firestore, "users", uid));
+}
+
+export async function updateUsername(uid: string, newUsername: string): Promise<void> {
+  await updateDoc(doc(firestore, "users", uid), { username: newUsername });
 }
 
 /* ================================================================
@@ -148,12 +159,20 @@ export async function getBannedUsernames(): Promise<string[]> {
 
 export function subscribeBannedUsernames(callback: (usernames: string[]) => void): () => void {
   return onSnapshot(doc(firestore, "config", "bannedUsers"), (snap) => {
-    if (!snap.exists()) {
+    if (snap.exists()) {
+      callback((snap.data().usernames as string[]) ?? []);
+    } else {
       callback([]);
-      return;
     }
-    callback((snap.data()?.usernames as string[]) ?? []);
   });
+}
+
+export async function getAdminPassword(): Promise<string | null> {
+  const snap = await getDoc(doc(firestore, "config", "adminPassword"));
+  if (snap.exists()) {
+    return snap.data().password as string;
+  }
+  return null;
 }
 
 export async function addBannedUsername(username: string): Promise<void> {

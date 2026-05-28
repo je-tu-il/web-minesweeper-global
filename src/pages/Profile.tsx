@@ -3,13 +3,14 @@ import { useParams, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { getUserProfile, followUser, unfollowUser, getAllUsers } from "@/lib/firestore";
 import { useUiStore } from "@/store/uiStore";
-import { Trophy, Swords, Flame, Clock, CalendarDays, X, User, ArrowLeft, UserPlus, UserMinus, Settings, Users } from "lucide-react";
+import { Trophy, Swords, Flame, Clock, CalendarDays, X, User, ArrowLeft, UserPlus, UserMinus, Settings, Users, MessageCircle } from "lucide-react";
 import { ACHIEVEMENTS, TIER_COLORS, GRID_PRESETS, type UserProfile, type GameHistoryEntry } from "@/types";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { createEmptyGame, generateDuelBoard } from "@/lib/gameEngine";
 import { toast } from "sonner";
 import { subscribeUserPresence } from "@/lib/firestore";
+import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip } from "recharts";
 
 export default function Profile() {
   const { uid } = useParams();
@@ -100,6 +101,20 @@ export default function Profile() {
     ? Math.round((totalWins / (totalWins + totalLosses)) * 100)
     : 0;
 
+  // Calculer l'évolution du winrate sur les 20 dernières parties
+  const history = profile.history || [];
+  const recentHistory = [...history].sort((a, b) => a.date - b.date).slice(-20);
+  let tempWins = totalWins - recentHistory.filter(g => g.result === "won").length;
+  let tempTotal = (totalWins + totalLosses) - recentHistory.length;
+  
+  const winrateData = recentHistory.map(g => {
+    tempTotal++;
+    if (g.result === "won") tempWins++;
+    return {
+      rate: tempTotal > 0 ? Math.round((tempWins / tempTotal) * 100) : 0
+    };
+  });
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#03070c] text-slate-100">
       <div className="pointer-events-none fixed inset-0 opacity-[0.04] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:44px_44px]" />
@@ -141,7 +156,17 @@ export default function Profile() {
             </div>
           </div>
 
-          {isMe ? (
+          <div className="flex flex-wrap items-center gap-3">
+            {!isMe && myProfile && (
+              <button
+                onClick={() => useUiStore.getState().setActivePrivateChat({ uid: profile.uid, username: profile.username })}
+                className="flex items-center gap-2 rounded-xl bg-white/[0.05] px-5 py-2.5 text-sm font-bold text-cyan-300 transition hover:bg-white/[0.1] border border-cyan-300/20"
+              >
+                <MessageCircle className="h-4 w-4" /> Discuter
+              </button>
+            )}
+            
+            {isMe ? (
             <button onClick={() => setShowUsernameModal(true)} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-5 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.08]">
               <Settings className="h-4 w-4" /> Modifier
             </button>
@@ -156,6 +181,7 @@ export default function Profile() {
               </button>
             )
           )}
+          </div>
         </div>
 
         {/* Tabs */}
@@ -207,9 +233,35 @@ export default function Profile() {
                       <div className="h-full bg-cyan-400 transition-all" style={{ width: `${winRate}%` }} />
                     </div>
                   </div>
+                  
+                  {/* Winrate Evolution Chart */}
+                  {winrateData.length > 1 && (
+                    <div className="mt-4 h-32 w-full">
+                      <p className="text-xs text-slate-500 mb-2">Évolution du Win Rate (récent)</p>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={winrateData}>
+                          <YAxis domain={[0, 100]} hide />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: '#03070c', borderColor: '#22d3ee20', borderRadius: '1rem', color: '#fff' }}
+                            itemStyle={{ color: '#22d3ee' }}
+                            formatter={(val: number) => [`${val}%`, 'Win Rate']}
+                            labelFormatter={() => ''}
+                          />
+                          <Line type="monotone" dataKey="rate" stroke="#22d3ee" strokeWidth={2} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1 text-slate-400"><Flame className="h-4 w-4 text-orange-400" /> Série max</span>
                     <span className="font-mono text-lg font-bold text-orange-400">{profile.stats?.bestWinStreak || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1 text-slate-400"><Clock className="h-4 w-4 text-purple-400" /> Temps joué</span>
+                    <span className="font-mono text-lg font-bold text-purple-400">
+                      {profile.stats?.playTime ? Math.floor(profile.stats.playTime / 3600) + 'h ' + Math.floor((profile.stats.playTime % 3600) / 60) + 'm' : '0m'}
+                    </span>
                   </div>
                 </div>
               </section>
@@ -225,6 +277,7 @@ export default function Profile() {
                 {ACHIEVEMENTS.map((ach) => {
                   const unlocked = profile.achievements?.includes(ach.id);
                   const color = TIER_COLORS[ach.tier];
+                  const isMystery = ach.isHidden && !unlocked;
                   
                   return (
                     <div
@@ -238,9 +291,11 @@ export default function Profile() {
                       {unlocked && (
                         <div className="absolute -right-4 -top-4 h-16 w-16 opacity-20 blur-2xl" style={{ backgroundColor: color }} />
                       )}
-                      <div className="mb-2 text-3xl">{ach.icon}</div>
+                      <div className="mb-2 text-3xl">{isMystery ? "❓" : ach.icon}</div>
                       <h3 className="text-sm font-bold text-white">{ach.name}</h3>
-                      <p className="mt-1 text-xs text-slate-500">{ach.description}</p>
+                      <p className={`mt-1 text-xs text-slate-500 ${isMystery ? 'blur-sm select-none' : ''}`}>
+                        {isMystery ? 'Secret' : ach.description}
+                      </p>
                       
                       <div className="mt-3 inline-block rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest" style={{ color: unlocked ? color : '#64748b', backgroundColor: unlocked ? `${color}20` : '#1e293b' }}>
                         {ach.tier}

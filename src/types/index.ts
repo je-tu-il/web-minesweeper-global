@@ -11,9 +11,10 @@ export type AchievementTier = "bronze" | "silver" | "gold" | "diamond";
 export interface AchievementDef {
   id: string;
   name: string;
-  description: string;
+  description: string; // The visible description
   tier: AchievementTier;
   icon: string;
+  isHidden?: boolean; // If true, description is hidden until unlocked
 }
 
 export const ACHIEVEMENTS: AchievementDef[] = [
@@ -34,6 +35,14 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   // Social
   { id: "first_duel_win", name: "Rival", description: "Gagner un duel", tier: "silver", icon: "⚔️" },
   { id: "first_spectate", name: "Voyeur", description: "Observer une partie", tier: "bronze", icon: "👀" },
+  // Temps de jeu & Fun
+  { id: "playtime_1h", name: "Accro", description: "Jouer pendant 1 heure au total", tier: "bronze", icon: "⏰" },
+  { id: "playtime_10h", name: "No-Life", description: "Jouer pendant 10 heures au total", tier: "gold", icon: "🕰️" },
+  { id: "playtime_100h", name: "Vétéran", description: "Jouer pendant 100 heures au total", tier: "diamond", icon: "⏳" },
+  // Mystères
+  { id: "mystere_egirl", name: "E-Girl", description: "Dire uwu dans le chat global", tier: "silver", icon: "🌸", isHidden: true },
+  { id: "mystere_boom_first_click", name: "Pas de chance", description: "Perdre sur le tout premier clic (impossible normalement)", tier: "bronze", icon: "💣", isHidden: true },
+  { id: "mystere_1", name: "Curieux", description: "Cliquer sur 5 profils différents", tier: "bronze", icon: "🔍", isHidden: true },
 ];
 
 export const TIER_COLORS: Record<AchievementTier, string> = {
@@ -55,6 +64,7 @@ export interface UserProfile {
     totalLosses: number;
     winStreak: number;
     bestWinStreak: number;
+    playTime?: number; // Temps de jeu total en secondes
   };
   achievements: string[]; // IDs des succès débloqués
   friends: string[]; // UIDs des gens suivis
@@ -117,6 +127,7 @@ export interface Room {
   maxPlayers: number;
   winner: string | null;
   firstClick?: { x: number, y: number };
+  duelMode?: "shared" | "separate";
 }
 
 /* ── Leaderboard ── */

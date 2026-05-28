@@ -1,25 +1,31 @@
 import { create } from "zustand";
 
-type Panel = "lobby" | "game" | "profile";
-
-interface UiStore {
-  activePanel: Panel;
+interface UiState {
+  activePanel: "lobby" | "game" | "chat";
   selectedRoomId: string | null;
   showUsernameModal: boolean;
   showCreateRoomModal: boolean;
-  setActivePanel: (panel: Panel) => void;
-  setSelectedRoomId: (roomId: string | null) => void;
-  setShowUsernameModal: (show: boolean) => void;
-  setShowCreateRoomModal: (show: boolean) => void;
+  activePrivateChat: { uid: string; username: string } | null;
 }
 
-export const useUiStore = create<UiStore>((set) => ({
+interface UiActions {
+  setActivePanel: (panel: UiState["activePanel"]) => void;
+  setSelectedRoomId: (id: string | null) => void;
+  setShowUsernameModal: (show: boolean) => void;
+  setShowCreateRoomModal: (show: boolean) => void;
+  setActivePrivateChat: (chat: { uid: string; username: string } | null) => void;
+}
+
+export const useUiStore = create<UiState & UiActions>((set) => ({
   activePanel: "lobby",
   selectedRoomId: null,
   showUsernameModal: false,
   showCreateRoomModal: false,
-  setActivePanel: (activePanel) => set({ activePanel }),
-  setSelectedRoomId: (selectedRoomId) => set({ selectedRoomId }),
+  activePrivateChat: null,
+
+  setActivePanel: (panel) => set({ activePanel: panel }),
+  setSelectedRoomId: (id) => set({ selectedRoomId: id }),
   setShowUsernameModal: (show) => set({ showUsernameModal: show }),
   setShowCreateRoomModal: (show) => set({ showCreateRoomModal: show }),
+  setActivePrivateChat: (chat) => set({ activePrivateChat: chat }),
 }));

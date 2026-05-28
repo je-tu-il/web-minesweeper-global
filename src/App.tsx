@@ -12,6 +12,7 @@ import Profile from "./pages/Profile";
 import Spectate from "./pages/Spectate";
 import NotFound from "./pages/NotFound";
 import { UsernameModal } from "@/components/UsernameModal";
+import { PrivateChat } from "@/components/PrivateChat";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <UsernameModal />
+        <PrivateChat />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />

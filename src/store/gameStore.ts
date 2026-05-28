@@ -28,6 +28,7 @@ interface GameStore {
     explodedCellId?: string,
     firstClick?: { x: number, y: number },
   ) => void;
+  mergeOpponentState: (revealedIds: string[], flaggedIds: string[], questionIds: string[], explodedId?: string) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -130,7 +131,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const lost = !!explodedCellId;
       const result = won ? "won" : lost ? "lost" : "playing";
 
-      set({
+      set((state) => ({
         game: {
           ...base,
           cells,
@@ -141,9 +142,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
           clickedRevealed: false,
         },
         mode,
-        timer: 0,
         isTimerRunning: result === "playing",
-      });
+        // Keep the existing timer if already running, don't reset to 0 on every sync
+        timer: state.timer === 0 && revealedCells.length > 0 ? 1 : state.timer
+      }));
       return;
     }
 
@@ -162,7 +164,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const lost = !!explodedCellId;
     const result = won ? "won" : lost ? "lost" : "playing";
 
-    set({
+    set((state) => ({
       game: {
         ...base,
         cells,
@@ -173,8 +175,42 @@ export const useGameStore = create<GameStore>((set, get) => ({
         clickedRevealed: false,
       },
       mode,
-      timer: 0,
       isTimerRunning: result === "playing",
+      timer: state.timer === 0 && revealedCells.length > 0 ? 1 : state.timer
+    }));
+  },
+
+  mergeOpponentState: (revealedIds: string[], flaggedIds: string[], questionIds: string[], explodedId?: string) => {
+    set((state) => {
+      if (state.game.result !== "playing") return state; // Don't merge if we already won/lost
+      const revealedSet = new Set(revealedIds);
+      const flaggedSet = new Set(flaggedIds);
+      const questionSet = new Set(questionIds);
+
+      const cells = state.game.cells.map((cell) => {
+        let status = cell.status;
+        if (revealedSet.has(cell.id)) status = "revealed";
+        let mark = cell.mark;
+        if (flaggedSet.has(cell.id)) mark = "flag";
+        else if (questionSet.has(cell.id)) mark = "question";
+        return { ...cell, status, mark };
+      });
+
+      const safeCells = cells.filter((c) => !c.hasMine);
+      const won = safeCells.every((c) => c.status === "revealed");
+      // Note: we don't end the game immediately if the opponent explodes, that's cross-victory logic handled elsewhere if needed
+      // Actually, if it's a shared board, opponent exploding doesn't necessarily mean WE lost, it means the opponent lost.
+      // But if we want cross-victory:
+      // const lost = !!explodedId;
+      // For now we just merge visual state.
+
+      return {
+        game: {
+          ...state.game,
+          cells,
+          result: won ? "won" : state.game.result,
+        }
+      };
     });
   },
 }));

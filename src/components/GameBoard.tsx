@@ -105,9 +105,6 @@ export function GameBoard({ onCellClick, onCellRightClick, disabled = false, isS
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [baseScale, setBaseScale] = useState(1);
-  const [zoomOffset, setZoomOffset] = useState(0); // Offset ajouté en mode focus
-
-  const scale = Math.max(0.1, baseScale + zoomOffset);
 
   // ResizeObserver pour adapter l'échelle
   useEffect(() => {
@@ -115,31 +112,26 @@ export function GameBoard({ onCellClick, onCellRightClick, disabled = false, isS
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const availableWidth = entry.contentRect.width;
+        // In focus mode, we also care about viewport height roughly
+        const availableHeight = isFocusMode ? window.innerHeight - 150 : Infinity;
+        
         // gap = 2px
         const boardWidth = config.width * cellSize + (config.width - 1) * 2;
-        if (boardWidth > availableWidth) {
-          setBaseScale(availableWidth / boardWidth);
-        } else {
-          setBaseScale(1);
-        }
+        const boardHeight = config.height * cellSize + (config.height - 1) * 2;
+        
+        const scaleWidth = boardWidth > availableWidth ? availableWidth / boardWidth : 1;
+        const scaleHeight = boardHeight > availableHeight ? availableHeight / boardHeight : 1;
+        
+        setBaseScale(Math.min(scaleWidth, scaleHeight, 1));
       }
     });
     observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, [config.width, cellSize]);
-
-  // Handle zoom in focus mode
-  const handleWheel = (e: React.WheelEvent) => {
-    if (!isFocusMode) return;
-    e.preventDefault();
-    const delta = e.deltaY * -0.001;
-    setZoomOffset((prev) => Math.min(2, Math.max(-baseScale + 0.2, prev + delta)));
-  };
+  }, [config.width, config.height, cellSize, isFocusMode]);
 
   return (
     <section 
-      className={`rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/40 backdrop-blur-xl w-full ${isFocusMode ? "overflow-auto touch-none" : ""}`}
-      onWheel={isFocusMode ? handleWheel : undefined}
+      className={`rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/40 backdrop-blur-xl w-full ${isFocusMode ? "overflow-hidden" : ""}`}
     >
       {/* Stats bar */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -195,7 +187,7 @@ export function GameBoard({ onCellClick, onCellRightClick, disabled = false, isS
             gridTemplateColumns: `repeat(${config.width}, ${cellSize}px)`,
             gap: "2px",
             width: "fit-content",
-            transform: `scale(${scale})`,
+            transform: `scale(${baseScale})`,
           }}
         >
           {cells.map((cell) => (
