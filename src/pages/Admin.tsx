@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { Shield, UserX, Users, ArrowLeft, Plus, Trash2, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
-import { getAllUsers, subscribeBannedUsernames, addBannedUsername, removeBannedUsername, resetUserStats } from "@/lib/firestore";
-import type { UserProfile } from "@/types";
+import { getAllUsers, subscribeBannedUsernames, addBannedUsername, removeBannedUsername, resetUserStats, subscribeRooms, deleteRoom } from "@/lib/firestore";
+import type { UserProfile, Room } from "@/types";
 
 const ADMIN_PASSWORD = ".1Azerty";
 
@@ -14,12 +14,17 @@ const Admin = () => {
   const [bannedUsernames, setBannedUsernames] = useState<string[]>([]);
   const [newBan, setNewBan] = useState("");
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [rooms, setRooms] = useState<Room[]>([]);
 
-  // Subscribe to banned list
+  // Subscribe to banned list and rooms
   useEffect(() => {
     if (!unlocked) return;
-    const unsub = subscribeBannedUsernames(setBannedUsernames);
-    return unsub;
+    const unsubBanned = subscribeBannedUsernames(setBannedUsernames);
+    const unsubRooms = subscribeRooms(setRooms);
+    return () => {
+      unsubBanned();
+      unsubRooms();
+    };
   }, [unlocked]);
 
   // Load all users
@@ -62,6 +67,12 @@ const Admin = () => {
             : u
         )
       );
+    }
+  };
+
+  const handleAdminDeleteRoom = async (roomId: string) => {
+    if (confirm("Forcer la suppression de cette partie ?")) {
+      await deleteRoom(roomId);
     }
   };
 
@@ -250,6 +261,40 @@ const Admin = () => {
             )}
           </section>
         </div>
+
+        {/* Active Rooms */}
+        <section className="mt-6 rounded-[2rem] border border-white/10 bg-slate-950/70 p-5 backdrop-blur-xl">
+          <div className="mb-4 flex items-center gap-3">
+            <h2 className="text-xl font-bold">Parties en cours</h2>
+            <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-slate-400">{rooms.length}</span>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {rooms.length === 0 ? (
+              <p className="text-sm text-slate-500">Aucune partie.</p>
+            ) : (
+              rooms.map((room) => (
+                <div key={room.roomId} className="flex flex-col justify-between rounded-xl bg-white/[0.04] p-3">
+                  <div className="mb-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-white">{room.mode}</span>
+                      <span className="text-xs text-slate-400">{room.status}</span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      ID: {room.roomId.slice(0, 8)}... | Joueurs: {Object.keys(room.players).length}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleAdminDeleteRoom(room.roomId)}
+                    className="flex w-full items-center justify-center gap-1 rounded-lg bg-red-400/10 px-3 py-1.5 text-xs font-semibold text-red-300 transition hover:bg-red-400/20"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
       </div>
     </main>
   );

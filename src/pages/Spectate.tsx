@@ -16,16 +16,17 @@ export default function Spectate() {
     if (!roomId) return;
     const unsub = subscribeRoom(roomId, (r) => {
       setRoom(r);
-      if (r) {
+        const firstPlayer = Object.values(r.players)[0];
         // Restaurer l'état du jeu localement à chaque mise à jour (lecture seule)
         restoreFromSync(
           r.gridConfig,
           r.seed,
           r.mode,
-          r.revealedCells || [],
-          r.flaggedCells || [],
-          r.questionCells || [],
-          r.explodedCellId
+          firstPlayer?.revealedCells || [],
+          firstPlayer?.flaggedCells || [],
+          firstPlayer?.questionCells || [],
+          firstPlayer?.explodedCellId,
+          r.firstClick
         );
       }
     });
@@ -88,7 +89,7 @@ export default function Spectate() {
 
             <div className="flex justify-center">
               {/* Le plateau est toujours disabled en spectateur */}
-              <GameBoard onCellClick={() => {}} onCellRightClick={() => {}} disabled={true} />
+              <GameBoard onCellClick={() => {}} onCellRightClick={() => {}} disabled={true} isSpectator={true} />
             </div>
           </div>
 

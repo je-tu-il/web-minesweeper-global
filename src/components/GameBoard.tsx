@@ -8,6 +8,7 @@ interface GameBoardProps {
   onCellClick: (cellId: string) => void;
   onCellRightClick: (cellId: string) => void;
   disabled?: boolean;
+  isSpectator?: boolean;
 }
 
 /* Couleurs classiques du démineur pour les chiffres */
@@ -89,7 +90,7 @@ const CellComponent = React.memo(({ cell, cellSize, isExploded, disabled, isGame
   );
 });
 
-export function GameBoard({ onCellClick, onCellRightClick, disabled = false }: GameBoardProps) {
+export function GameBoard({ onCellClick, onCellRightClick, disabled = false, isSpectator = false }: GameBoardProps) {
   const { game, timer } = useGameStore();
   const { cells, config, result, explodedCellId } = game;
 
@@ -144,9 +145,11 @@ export function GameBoard({ onCellClick, onCellRightClick, disabled = false }: G
 
       {/* Grid — scroll horizontal sur grandes grilles */}
       <div className="relative overflow-x-auto pb-2">
-        {disabled && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-black/40 backdrop-blur-sm">
-            <p className="text-lg font-bold text-slate-400">Tour de l'adversaire…</p>
+        {disabled && game.result === "playing" && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-slate-950/20 backdrop-blur-[1px]">
+            <div className="rounded-full bg-slate-900/80 px-4 py-2 text-sm font-bold text-white shadow-xl backdrop-blur">
+              {isSpectator ? "👀 Mode Spectateur" : "⏳ Tour de l'adversaire..."}
+            </div>
           </div>
         )}
 

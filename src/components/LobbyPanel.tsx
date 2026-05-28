@@ -6,6 +6,7 @@ import { subscribeRooms, joinRoom, deleteRoom, leaveRoom } from "@/lib/firestore
 import type { Room } from "@/types";
 import { Plus, Users, Crosshair, Swords, Clock, Trash2, LogIn, LogOut, Eye } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 const modeIcons: Record<string, typeof Crosshair> = {
   solo: Crosshair,
@@ -60,7 +61,8 @@ export function LobbyPanel() {
           room.players[userProfile.uid]?.revealedCells || [],
           room.players[userProfile.uid]?.flaggedCells || [],
           room.players[userProfile.uid]?.questionCells || [],
-          room.players[userProfile.uid]?.explodedCellId
+          room.players[userProfile.uid]?.explodedCellId,
+          room.firstClick
         );
       } else {
         // En attente
@@ -93,7 +95,12 @@ export function LobbyPanel() {
   };
 
   const handleDelete = async (roomId: string) => {
-    await deleteRoom(roomId);
+    try {
+      await deleteRoom(roomId);
+    } catch (e) {
+      toast.error("Impossible de supprimer la partie (Permissions insuffisantes ?)");
+      console.error(e);
+    }
   };
 
   const handleLeave = async (roomId: string) => {
@@ -132,31 +139,41 @@ export function LobbyPanel() {
             const isCreator = room.createdBy === userProfile?.uid;
             const isInRoom = userProfile ? !!room.players[userProfile.uid] : false;
             const canJoin = room.status === "waiting" && playerCount < room.maxPlayers && !isInRoom;
-            const creatorName = Object.values(room.players).find((p) => p.uid === room.createdBy)?.username || "?";
+            const creator = Object.values(room.players).find((p) => p.uid === room.createdBy);
 
             return (
               <div
                 key={room.roomId}
-                className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3 transition hover:bg-white/[0.06]"
+                className="flex flex-col gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3 transition hover:bg-white/[0.06] sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex items-center gap-3">
-                  <div className="grid h-9 w-9 place-items-center rounded-lg bg-white/[0.06]">
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/[0.06]">
                     <ModeIcon className="h-4 w-4 text-cyan-200" />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold text-white">{modeLabels[room.mode]}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[room.status]}`}>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[room.status]}`}>
                         {statusLabels[room.status]}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500">
-                      {creatorName} · {room.gridConfig.width}×{room.gridConfig.height} · {playerCount}/{room.maxPlayers}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-1 text-xs text-slate-500">
+                      {creator ? (
+                        <Link to={`/profile/${creator.uid}`} className="truncate text-cyan-300 hover:underline max-w-[100px]">
+                          {creator.username}
+                        </Link>
+                      ) : (
+                        "?"
+                      )}
+                      <span>·</span>
+                      <span className="shrink-0">{room.gridConfig.width}×{room.gridConfig.height}</span>
+                      <span>·</span>
+                      <span className="shrink-0">{playerCount}/{room.maxPlayers}</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-auto">
                   {(canJoin || isInRoom) && (
                     <button
                       onClick={() => handleJoin(room)}

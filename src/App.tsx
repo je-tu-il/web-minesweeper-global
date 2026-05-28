@@ -11,6 +11,7 @@ import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
 import Spectate from "./pages/Spectate";
 import NotFound from "./pages/NotFound";
+import { UsernameModal } from "@/components/UsernameModal";
 
 const queryClient = new QueryClient();
 
@@ -20,6 +21,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <UsernameModal />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />

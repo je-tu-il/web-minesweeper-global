@@ -103,6 +103,7 @@ export interface Room {
   createdAt: number;
   maxPlayers: number;
   winner: string | null;
+  firstClick?: { x: number, y: number };
 }
 
 /* ── Leaderboard ── */

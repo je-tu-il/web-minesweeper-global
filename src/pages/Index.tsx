@@ -8,13 +8,12 @@ import { AuthBar } from "@/components/AuthBar";
 import { GameBoard } from "@/components/GameBoard";
 import { LobbyPanel } from "@/components/LobbyPanel";
 import { RoomChat } from "@/components/RoomChat";
-import { UsernameModal } from "@/components/UsernameModal";
 import { CreateRoomModal } from "@/components/CreateRoomModal";
 import { PlayerStats } from "@/components/PlayerStats";
 import { Leaderboard } from "@/components/Leaderboard";
 import { MiniBoard } from "@/components/MiniBoard";
 import { AchievementToast } from "@/components/AchievementToast";
-import { Bomb, Swords, Clock, Crosshair, MessageCircle, LayoutGrid } from "lucide-react";
+import { Bomb, Swords, Clock, Crosshair, MessageCircle, LayoutGrid, Maximize2, Minimize2 } from "lucide-react";
 import type { Room } from "@/types";
 
 const Index = () => {
@@ -27,6 +26,7 @@ const Index = () => {
   const statsUpdatedRef = useRef(false);
 
   const [newAchievements, setNewAchievements] = useState<string[]>([]);
+  const [isFocusMode, setIsFocusMode] = useState(false);
 
   // Timer
   useEffect(() => {
@@ -87,9 +87,9 @@ const Index = () => {
       if (won && room?.mode === "solo") {
         // Déterminer la difficulté en fonction de la taille
         let diffKey = "custom";
-        if (game.config.width === 9 && game.config.mines === 10) diffKey = "beginner";
-        else if (game.config.width === 16 && game.config.mines === 40) diffKey = "intermediate";
-        else if (game.config.width === 30 && game.config.mines === 99) diffKey = "expert";
+        if (game.config.width === 9 && game.config.height === 9 && game.config.mines === 10) diffKey = "beginner";
+        else if (game.config.width === 16 && game.config.height === 16 && game.config.mines === 40) diffKey = "intermediate";
+        else if (game.config.width === 30 && game.config.height === 16 && game.config.mines === 99) diffKey = "expert";
         
         submitScore({
           uid: userProfile.uid,
@@ -143,7 +143,11 @@ const Index = () => {
       // Turn-based: vérifier que c'est le tour du joueur
       if (room?.mode === "turn-based" && room.turn !== userProfile.uid) return;
 
-      const newGame = handleReveal(cellId);
+      if (!game.firstClickDone && room && !room.firstClick) {
+      updateRoom(selectedRoomId, { firstClick: { x: target.x, y: target.y } });
+    }
+    
+    const newGame = handleReveal(cellId);
       pushGameStateToFirestore(newGame);
 
       // Turn-based: passer le tour
@@ -251,14 +255,13 @@ const Index = () => {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(34,211,238,0.15),transparent_28%),radial-gradient(circle_at_84%_18%,rgba(245,158,11,0.10),transparent_25%)]" />
       <div className="pointer-events-none fixed inset-0 opacity-[0.04] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:44px_44px]" />
 
-      <div className="relative mx-auto max-w-7xl px-4 py-4 sm:px-6">
-        <AuthBar />
+      <div className={`relative mx-auto px-4 py-4 sm:px-6 ${isFocusMode ? "max-w-full" : "max-w-7xl"}`}>
+        {!isFocusMode && <AuthBar />}
         {newAchievements.length > 0 && (
           <AchievementToast achievementIds={newAchievements} onDone={() => setNewAchievements([])} />
         )}
 
         {/* Modals */}
-        {showUsernameModal && <UsernameModal />}
         {showCreateRoomModal && <CreateRoomModal />}
 
         {/* Mobile tabs */}
@@ -283,16 +286,18 @@ const Index = () => {
           </button>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[320px_1fr_320px]">
+        <div className={`grid gap-4 ${isFocusMode ? "grid-cols-1" : "lg:grid-cols-[320px_minmax(0,1fr)_320px]"}`}>
           {/* Left: Lobby */}
-          <aside className={`space-y-4 ${activePanel !== "lobby" ? "hidden lg:block" : ""}`}>
-            <LobbyPanel />
-            <PlayerStats profile={userProfile} />
-            <Leaderboard />
-          </aside>
+          {!isFocusMode && (
+            <aside className={`space-y-4 ${activePanel !== "lobby" ? "hidden lg:block" : ""}`}>
+              <LobbyPanel />
+              <PlayerStats profile={userProfile} />
+              <Leaderboard />
+            </aside>
+          )}
 
           {/* Center: Game */}
-          <div className={`${activePanel !== "game" && activePanel !== "lobby" ? "hidden lg:block" : activePanel === "lobby" ? "hidden lg:block" : ""}`}>
+          <div className={`min-w-0 ${activePanel !== "game" && activePanel !== "lobby" ? "hidden lg:block" : activePanel === "lobby" ? "hidden lg:block" : ""}`}>
             {!isInGame ? (
               <div className="flex h-full flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-white/[0.03] p-10 text-center backdrop-blur">
                 <Bomb className="mb-4 h-12 w-12 text-cyan-200/30" />
@@ -339,6 +344,15 @@ const Index = () => {
                         <span className="text-slate-500">{opponentInfo.result !== "playing" ? "(Terminé)" : "(En jeu)"}</span>
                       </div>
                     )}
+                    
+                    {/* Focus Mode Toggle */}
+                    <button
+                      onClick={() => setIsFocusMode(!isFocusMode)}
+                      className="ml-auto rounded-lg border border-white/10 bg-white/5 p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+                      title={isFocusMode ? "Quitter le mode focus" : "Mode focus"}
+                    >
+                      {isFocusMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                    </button>
                   </div>
                 )}
 
@@ -400,15 +414,17 @@ const Index = () => {
           </div>
 
           {/* Right: Chat */}
-          <aside className={`${activePanel !== "game" || !selectedRoomId ? "hidden lg:block" : ""}`}>
-            {selectedRoomId ? (
-              <RoomChat roomId={selectedRoomId} />
-            ) : (
-              <div className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-4 text-center text-sm text-slate-500 backdrop-blur-xl">
-                Rejoignez une room pour accéder au chat.
-              </div>
-            )}
-          </aside>
+          {!isFocusMode && (
+            <aside className={`${activePanel !== "game" || !selectedRoomId ? "hidden lg:block" : ""}`}>
+              {selectedRoomId ? (
+                <RoomChat roomId={selectedRoomId} />
+              ) : (
+                <div className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-4 text-center text-sm text-slate-500 backdrop-blur-xl">
+                  Rejoignez une room pour accéder au chat.
+                </div>
+              )}
+            </aside>
+          )}
         </div>
       </div>
     </main>

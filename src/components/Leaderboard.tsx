@@ -3,6 +3,7 @@ import { subscribeLeaderboard } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { GRID_PRESETS, type LeaderboardEntry } from "@/types";
 import { Clock, Crown, Medal } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const DIFFICULTIES = ["beginner", "intermediate", "expert"] as const;
 const LABELS: Record<string, string> = {
@@ -69,9 +70,9 @@ export function Leaderboard() {
                   {rankIcon || <span className="text-slate-500">{i + 1}</span>}
                 </div>
                 {/* Pseudo */}
-                <span className={`flex-1 truncate text-sm font-medium ${isMe ? "text-cyan-200" : "text-white"}`}>
+                <Link to={`/profile/${entry.uid}`} className={`flex-1 truncate text-sm font-medium hover:underline ${isMe ? "text-cyan-200" : "text-white"}`}>
                   {entry.username}
-                </span>
+                </Link>
                 {/* Temps */}
                 <div className="flex items-center gap-1 text-sm">
                   <Clock className="h-3 w-3 text-slate-500" />
