@@ -5,12 +5,14 @@ import { UserCircle, X } from "lucide-react";
 
 export function UsernameModal() {
   const { userProfile, updateProfile } = useAuth();
-  const { setShowUsernameModal } = useUiStore();
+  const { showUsernameModal, setShowUsernameModal } = useUiStore();
   
   const [username, setUsername] = useState(userProfile?.username || "");
   const [avatarUrl, setAvatarUrl] = useState(userProfile?.avatarUrl || "");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  if (!showUsernameModal) return null;
 
   // Si l'utilisateur n'a pas de pseudo, il DOIT en choisir un (pas de bouton fermer)
   const mustChooseUsername = !userProfile?.username;
