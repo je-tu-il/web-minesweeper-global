@@ -23,14 +23,22 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: "win_intermediate", name: "Artificier", description: "Gagner en Intermédiaire", tier: "silver", icon: "🥈" },
   { id: "win_expert", name: "Maître Démineur", description: "Gagner en Expert", tier: "gold", icon: "🥇" },
   { id: "win_custom_hard", name: "Légende", description: "Gagner 25×25+ avec 100+ mines", tier: "diamond", icon: "💎" },
-  // Spéciaux
+  // Spéciaux - Puriste
   { id: "no_flag", name: "Puriste", description: "Gagner sans poser un seul drapeau", tier: "gold", icon: "🏴" },
+  { id: "no_flag_beginner", name: "Puriste Débutant", description: "Gagner sans poser de drapeau (Débutant)", tier: "bronze", icon: "🏴" },
+  { id: "no_flag_intermediate", name: "Puriste Intermédiaire", description: "Gagner sans poser de drapeau (Intermédiaire)", tier: "silver", icon: "🏴" },
+  { id: "no_flag_expert", name: "Puriste Expert", description: "Gagner sans poser de drapeau (Expert)", tier: "gold", icon: "🏴" },
+  // Clic Louis
   { id: "click_revealed", name: "Succès Louis", description: "Cliquer sur une case déjà révélée", tier: "bronze", icon: "🤡" },
   // Speed
   { id: "speed_30", name: "Speedrunner", description: "Gagner en moins de 30s", tier: "silver", icon: "⚡" },
   { id: "speed_10", name: "Flash", description: "Gagner en moins de 10s", tier: "gold", icon: "🔥" },
+  { id: "speed_beginner", name: "Speed Débutant", description: "Gagner en Débutant en moins de 15s", tier: "bronze", icon: "⚡" },
+  { id: "speed_intermediate", name: "Speed Intermédiaire", description: "Gagner en Intermédiaire en moins de 60s", tier: "silver", icon: "🔥" },
+  { id: "speed_expert", name: "Speed Expert", description: "Gagner en Expert en moins de 120s", tier: "gold", icon: "☄️" },
   // Streaks
   { id: "win_streak_3", name: "Série", description: "3 victoires d'affilée", tier: "bronze", icon: "🔥" },
+  { id: "win_streak_5", name: "Invaincu", description: "5 victoires d'affilée", tier: "silver", icon: "🎖️" },
   { id: "win_streak_10", name: "Inarrêtable", description: "10 victoires d'affilée", tier: "gold", icon: "💪" },
   // Social
   { id: "first_duel_win", name: "Rival", description: "Gagner un duel", tier: "silver", icon: "⚔️" },

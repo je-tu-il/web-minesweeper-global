@@ -10,6 +10,11 @@ interface GameBoardProps {
   disabled?: boolean;
   isSpectator?: boolean;
   isFocusMode?: boolean;
+  customCells?: Cell[];
+  customConfig?: GridConfig;
+  customResult?: GameResult;
+  customExplodedCellId?: string;
+  customTimer?: number;
 }
 
 /* Couleurs classiques du démineur pour les chiffres */
@@ -89,8 +94,26 @@ const CellComponent = React.memo(({ cell, cellSize, isExploded, disabled, isGame
   );
 });
 
-export function GameBoard({ onCellClick, onCellRightClick, disabled = false, isSpectator = false, isFocusMode = false }: GameBoardProps) {
-  const { game, timer } = useGameStore();
+export function GameBoard({
+  onCellClick,
+  onCellRightClick,
+  disabled = false,
+  isSpectator = false,
+  isFocusMode = false,
+  customCells,
+  customConfig,
+  customResult,
+  customExplodedCellId,
+  customTimer,
+}: GameBoardProps) {
+  const store = useGameStore();
+  const game = customCells ? {
+    cells: customCells,
+    config: customConfig!,
+    result: customResult || "playing",
+    explodedCellId: customExplodedCellId
+  } : store.game;
+  const timer = customTimer !== undefined ? customTimer : store.timer;
   const { cells, config, result, explodedCellId } = game;
 
   const revealedCount = useMemo(() => cells.filter((c) => c.status === "revealed").length, [cells]);

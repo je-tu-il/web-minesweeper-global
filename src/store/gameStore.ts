@@ -23,6 +23,7 @@ interface GameStore {
     config: GridConfig,
     seed: number,
     mode: RoomMode,
+    revealedCells: string[],
     flaggedCells: string[],
     questionCells: string[],
     explodedCellId?: string,

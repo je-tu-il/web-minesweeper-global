@@ -121,6 +121,11 @@ export async function addAchievements(uid: string, achievementIds: string[]): Pr
   await updateDoc(ref, { achievements: arrayUnion(...achievementIds) });
 }
 
+export async function resetUserAchievements(uid: string): Promise<void> {
+  const ref = doc(firestore, "users", uid);
+  await updateDoc(ref, { achievements: [] });
+}
+
 export async function deleteUserProfile(uid: string): Promise<void> {
   await deleteDoc(doc(firestore, "users", uid));
 }
@@ -173,6 +178,10 @@ export async function getAdminPassword(): Promise<string | null> {
     return snap.data().password as string;
   }
   return null;
+}
+
+export async function updateAdminPassword(newPassword: string): Promise<void> {
+  await setDoc(doc(firestore, "config", "adminPassword"), { password: newPassword });
 }
 
 export async function addBannedUsername(username: string): Promise<void> {

@@ -1,9 +1,24 @@
 import { useState, useEffect } from "react";
-import { Shield, UserX, Users, ArrowLeft, Plus, Trash2, Lock } from "lucide-react";
+import { Shield, UserX, Users, ArrowLeft, Plus, Trash2, Lock, Edit2, KeyRound, Check, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { getAllUsers, subscribeBannedUsernames, addBannedUsername, removeBannedUsername, resetUserStats, subscribeRooms, deleteRoom, getAdminPassword, deleteUserProfile, updateUsername } from "@/lib/firestore";
-import type { UserProfile, Room } from "@/types";
+import { 
+  getAllUsers, 
+  subscribeBannedUsernames, 
+  addBannedUsername, 
+  removeBannedUsername, 
+  resetUserStats, 
+  subscribeRooms, 
+  deleteRoom, 
+  getAdminPassword, 
+  deleteUserProfile, 
+  updateUsername,
+  resetUserAchievements,
+  updateAdminPassword,
+  createOrUpdateProfile
+} from "@/lib/firestore";
+import { ACHIEVEMENTS } from "@/types";
+import type { UserProfile, Room, GameHistoryEntry } from "@/types";
 
 const Admin = () => {
   const [password, setPassword] = useState("");
@@ -16,6 +31,23 @@ const Admin = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+
+  // Password Modification States
+  const [currentAdminPasswordInput, setCurrentAdminPasswordInput] = useState("");
+  const [newAdminPasswordInput, setNewAdminPasswordInput] = useState("");
+  const [confirmNewAdminPassword, setConfirmNewAdminPassword] = useState("");
+  const [passwordFormOpen, setPasswordFormOpen] = useState(false);
+
+  // Precise User Editing States
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [tempUsername, setTempUsername] = useState("");
+  const [tempWins, setTempWins] = useState("");
+  const [tempLosses, setTempLosses] = useState("");
+  const [tempStreak, setTempStreak] = useState("");
+  const [tempBestStreak, setTempBestStreak] = useState("");
+  const [tempPlayTime, setTempPlayTime] = useState("");
+  const [tempAchievements, setTempAchievements] = useState<string[]>([]);
+  const [tempHistory, setTempHistory] = useState<GameHistoryEntry[]>([]);
 
   // Subscribe to banned list and rooms
   useEffect(() => {
@@ -82,13 +114,7 @@ const Admin = () => {
   const handleResetStats = async (uid: string) => {
     if (confirm("Voulez-vous vraiment réinitialiser les statistiques de ce joueur ?")) {
       await resetUserStats(uid);
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.uid === uid
-            ? { ...u, stats: { ...u.stats, totalWins: 0, totalLosses: 0, winStreak: 0, bestWinStreak: 0, playTime: 0 } }
-            : u
-        )
-      );
+      loadUsers();
       toast.success("Statistiques réinitialisées.");
     }
   };
@@ -111,6 +137,18 @@ const Admin = () => {
       loadUsers();
       setSelectedUsers([]);
       toast.success("Statistiques réinitialisées en lot.");
+    } catch (e) {
+      toast.error("Erreur lors de la réinitialisation en lot.");
+    }
+  };
+
+  const handleMassResetAchievements = async () => {
+    if (!confirm(`Réinitialiser les succès de ${selectedUsers.length} joueurs ?`)) return;
+    try {
+      await Promise.all(selectedUsers.map(uid => resetUserAchievements(uid)));
+      loadUsers();
+      setSelectedUsers([]);
+      toast.success("Succès réinitialisés en lot.");
     } catch (e) {
       toast.error("Erreur lors de la réinitialisation en lot.");
     }
@@ -148,6 +186,65 @@ const Admin = () => {
       toast.success("Pseudo modifié avec succès.");
     } catch (e) {
       toast.error("Erreur lors de la modification du pseudo.");
+    }
+  };
+
+  const handleChangeAdminPassword = async () => {
+    if (newAdminPasswordInput !== confirmNewAdminPassword) {
+      toast.error("Les deux nouveaux mots de passe ne correspondent pas.");
+      return;
+    }
+    try {
+      const realPassword = await getAdminPassword();
+      if (currentAdminPasswordInput !== realPassword) {
+        toast.error("Mot de passe administrateur actuel invalide.");
+        return;
+      }
+      await updateAdminPassword(newAdminPasswordInput);
+      setCurrentAdminPasswordInput("");
+      setNewAdminPasswordInput("");
+      setConfirmNewAdminPassword("");
+      setPasswordFormOpen(false);
+      toast.success("Mot de passe administrateur mis à jour avec succès !");
+    } catch (err) {
+      toast.error("Échec du changement de mot de passe.");
+    }
+  };
+
+  // Open Player Detail Drawer
+  const openPlayerEditor = (u: UserProfile) => {
+    setEditingUser(u);
+    setTempUsername(u.username || "");
+    setTempWins(String(u.stats?.totalWins || 0));
+    setTempLosses(String(u.stats?.totalLosses || 0));
+    setTempStreak(String(u.stats?.winStreak || 0));
+    setTempBestStreak(String(u.stats?.bestWinStreak || 0));
+    setTempPlayTime(String(u.stats?.playTime || 0));
+    setTempAchievements(u.achievements || []);
+    setTempHistory(u.history || []);
+  };
+
+  // Save Detailed Changes
+  const handleSavePlayerEdit = async () => {
+    if (!editingUser) return;
+    try {
+      await createOrUpdateProfile(editingUser.uid, {
+        username: tempUsername.trim(),
+        stats: {
+          totalWins: parseInt(tempWins) || 0,
+          totalLosses: parseInt(tempLosses) || 0,
+          winStreak: parseInt(tempStreak) || 0,
+          bestWinStreak: parseInt(tempBestStreak) || 0,
+          playTime: parseInt(tempPlayTime) || 0,
+        },
+        achievements: tempAchievements,
+        history: tempHistory,
+      });
+      loadUsers();
+      setEditingUser(null);
+      toast.success("Profil mis à jour précisément avec succès !");
+    } catch (err) {
+      toast.error("Erreur de mise à jour précise.");
     }
   };
 
@@ -201,27 +298,82 @@ const Admin = () => {
 
   // ── Admin dashboard ──
   return (
-    <main className="min-h-screen bg-[#03070c] text-slate-100">
+    <main className="min-h-screen bg-[#03070c] text-slate-100 pb-16">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(245,158,11,0.12),transparent_28%)]" />
 
-      <div className="relative mx-auto max-w-5xl px-4 py-6 sm:px-6">
-        <header className="mb-6 flex items-center justify-between">
+      <div className="relative mx-auto max-w-6xl px-4 py-6 sm:px-6">
+        <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-300 text-slate-950">
               <Shield className="h-5 w-5" />
             </div>
             <h1 className="text-2xl font-bold text-white">Dashboard Admin</h1>
           </div>
-          <Link
-            to="/"
-            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-400 transition hover:bg-white/10"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Retour au jeu
-          </Link>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPasswordFormOpen(!passwordFormOpen)}
+              className="flex items-center gap-1.5 rounded-xl border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm text-amber-200 transition hover:bg-amber-300/20"
+            >
+              <KeyRound className="h-4 w-4" /> Modif MDP
+            </button>
+            <Link
+              to="/"
+              className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-400 transition hover:bg-white/10"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Retour au jeu
+            </Link>
+          </div>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        {/* Change Admin Password Card */}
+        {passwordFormOpen && (
+          <section className="mb-6 rounded-[2rem] border border-amber-300/25 bg-amber-400/[0.04] p-6 backdrop-blur-xl">
+            <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-amber-400" />
+              Changement du mot de passe Administrateur
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <input
+                value={currentAdminPasswordInput}
+                onChange={(e) => setCurrentAdminPasswordInput(e.target.value)}
+                type="password"
+                placeholder="Mot de passe actuel"
+                className="rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 text-sm text-white outline-none transition focus:border-amber-300/40"
+              />
+              <input
+                value={newAdminPasswordInput}
+                onChange={(e) => setNewAdminPasswordInput(e.target.value)}
+                type="password"
+                placeholder="Nouveau mot de passe"
+                className="rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 text-sm text-white outline-none transition focus:border-amber-300/40"
+              />
+              <input
+                value={confirmNewAdminPassword}
+                onChange={(e) => setConfirmNewAdminPassword(e.target.value)}
+                type="password"
+                placeholder="Confirmer mot de passe"
+                className="rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 text-sm text-white outline-none transition focus:border-amber-300/40"
+              />
+            </div>
+            <div className="mt-4 flex gap-2 justify-end">
+              <button
+                onClick={() => setPasswordFormOpen(false)}
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-400 hover:bg-white/10"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleChangeAdminPassword}
+                className="rounded-xl bg-amber-400 px-5 py-2 text-xs font-bold text-slate-950 hover:bg-amber-300"
+              >
+                Modifier le mot de passe
+              </button>
+            </div>
+          </section>
+        )}
+
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_2fr]">
           {/* Banned users */}
           <section className="rounded-[2rem] border border-red-300/15 bg-red-400/[0.05] p-5">
             <div className="mb-4 flex items-center gap-3">
@@ -274,7 +426,7 @@ const Admin = () => {
 
           {/* Users list */}
           <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-5 backdrop-blur-xl">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="mb-4 flex flex-col gap-3">
               <div className="flex items-center gap-3">
                 <Users className="h-5 w-5 text-cyan-200" />
                 <h2 className="text-xl font-bold">Tous les joueurs</h2>
@@ -282,15 +434,18 @@ const Admin = () => {
               </div>
               
               {selectedUsers.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-slate-400">{selectedUsers.length} sélectionné(s)</span>
-                  <button onClick={handleMassReset} className="rounded-lg bg-amber-400/20 px-3 py-1 text-xs font-bold text-amber-300 hover:bg-amber-400/30">
+                <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/5">
+                  <span className="text-xs text-slate-400">{selectedUsers.length} sélectionné(s) :</span>
+                  <button onClick={handleMassReset} className="rounded-lg bg-amber-400/20 px-2.5 py-1 text-xs font-bold text-amber-300 hover:bg-amber-400/30">
                     Reset Stats
                   </button>
-                  <button onClick={handleMassBan} className="rounded-lg bg-red-400/20 px-3 py-1 text-xs font-bold text-red-300 hover:bg-red-400/30">
+                  <button onClick={handleMassResetAchievements} className="rounded-lg bg-cyan-400/20 px-2.5 py-1 text-xs font-bold text-cyan-300 hover:bg-cyan-400/30">
+                    Reset Succès
+                  </button>
+                  <button onClick={handleMassBan} className="rounded-lg bg-red-400/20 px-2.5 py-1 text-xs font-bold text-red-300 hover:bg-red-400/30">
                     Bannir
                   </button>
-                  <button onClick={handleMassDelete} className="rounded-lg bg-red-500/20 px-3 py-1 text-xs font-bold text-red-400 hover:bg-red-500/30">
+                  <button onClick={handleMassDelete} className="rounded-lg bg-red-500/20 px-2.5 py-1 text-xs font-bold text-red-400 hover:bg-red-500/30">
                     Supprimer
                   </button>
                 </div>
@@ -313,7 +468,7 @@ const Admin = () => {
                         type="checkbox" 
                         checked={selectedUsers.length === users.length} 
                         onChange={(e) => setSelectedUsers(e.target.checked ? users.map(u => u.uid) : [])}
-                        className="rounded border-white/10 bg-white/5 accent-cyan-400"
+                        className="rounded border-white/10 bg-white/5 accent-cyan-400 cursor-pointer"
                       />
                       <span>Pseudo</span>
                       <span className="text-center">W</span>
@@ -322,8 +477,8 @@ const Admin = () => {
                       <span className="text-center"></span>
                     </div>
                     {users.map((u) => {
-                      const total = u.stats.totalWins + u.stats.totalLosses;
-                      const rate = total > 0 ? Math.round((u.stats.totalWins / total) * 100) : 0;
+                      const total = (u.stats?.totalWins || 0) + (u.stats?.totalLosses || 0);
+                      const rate = total > 0 ? Math.round(((u.stats?.totalWins || 0) / total) * 100) : 0;
                       const isBanned = bannedUsernames.includes(u.username);
                       const isSelected = selectedUsers.includes(u.uid);
                       
@@ -339,7 +494,7 @@ const Admin = () => {
                             type="checkbox" 
                             checked={isSelected}
                             onChange={(e) => setSelectedUsers(prev => e.target.checked ? [...prev, u.uid] : prev.filter(id => id !== u.uid))}
-                            className="rounded border-white/10 bg-white/5 accent-cyan-400"
+                            className="rounded border-white/10 bg-white/5 accent-cyan-400 cursor-pointer"
                           />
                           <span className="flex items-center gap-2 text-sm text-white truncate cursor-pointer" onClick={() => {
                             const newName = prompt("Nouveau pseudo :", u.username);
@@ -353,16 +508,25 @@ const Admin = () => {
                               <span className="rounded bg-red-400/20 px-1.5 py-0.5 text-[10px] text-red-300">BAN</span>
                             )}
                           </span>
-                          <span className="text-center text-sm text-emerald-300">{u.stats.totalWins}</span>
-                          <span className="text-center text-sm text-red-300">{u.stats.totalLosses}</span>
+                          <span className="text-center text-sm text-emerald-300">{u.stats?.totalWins || 0}</span>
+                          <span className="text-center text-sm text-red-300">{u.stats?.totalLosses || 0}</span>
                           <span className="text-center text-sm text-amber-200">{rate}%</span>
-                          <button
-                            onClick={() => handleResetStats(u.uid)}
-                            className="rounded p-1 text-slate-500 hover:bg-white/10 hover:text-amber-400 transition"
-                            title="Réinitialiser les stats"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          <div className="flex gap-1 justify-center">
+                            <button
+                              onClick={() => openPlayerEditor(u)}
+                              className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-cyan-400 transition"
+                              title="Édition précise (Stats, Succès, Historique)"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleResetStats(u.uid)}
+                              className="rounded p-1 text-slate-500 hover:bg-white/10 hover:text-amber-400 transition"
+                              title="Réinitialiser les stats"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -388,10 +552,10 @@ const Admin = () => {
                 <div key={room.roomId} className="flex flex-col justify-between rounded-xl bg-white/[0.04] p-3">
                   <div className="mb-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-white">{room.mode}</span>
+                      <span className="text-sm font-bold text-white uppercase tracking-wider">{room.mode}</span>
                       <span className="text-xs text-slate-400">{room.status}</span>
                     </div>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 mt-1">
                       ID: {room.roomId.slice(0, 8)}... | Joueurs: {Object.keys(room.players || {}).length}
                     </p>
                   </div>
@@ -407,6 +571,154 @@ const Admin = () => {
           </div>
         </section>
       </div>
+
+      {/* Precise Editor Drawer/Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-2xl rounded-[2rem] border border-white/10 bg-slate-950 p-6 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
+              <div className="flex items-center gap-2">
+                <Edit2 className="h-5 w-5 text-cyan-300" />
+                <h2 className="text-lg font-bold text-white">
+                  Éditeur Précis : {editingUser.username || "Sans pseudo"}
+                </h2>
+              </div>
+              <button
+                onClick={() => setEditingUser(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-6 pr-1 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
+              {/* Pseudo & Role */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 block">Pseudo</label>
+                  <input
+                    value={tempUsername}
+                    onChange={(e) => setTempUsername(e.target.value)}
+                    type="text"
+                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-white outline-none transition focus:border-cyan-300/40"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 block">UID (Lecture seule)</label>
+                  <input
+                    value={editingUser.uid}
+                    readOnly
+                    type="text"
+                    className="w-full rounded-xl border border-white/10 bg-black/60 px-3 py-2.5 text-slate-500 outline-none cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              {/* Stats values */}
+              <div>
+                <h3 className="text-sm font-bold text-white mb-3">Valeurs Statistiques</h3>
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-5">
+                  {[
+                    { label: "Victoires", val: tempWins, set: setTempWins },
+                    { label: "Défaites", val: tempLosses, set: setTempLosses },
+                    { label: "Série act.", val: tempStreak, set: setTempStreak },
+                    { label: "Série max.", val: tempBestStreak, set: setTempBestStreak },
+                    { label: "Temps (s)", val: tempPlayTime, set: setTempPlayTime },
+                  ].map((stat) => (
+                    <div key={stat.label}>
+                      <label className="text-[10px] font-bold text-slate-400 mb-1 block truncate">{stat.label}</label>
+                      <input
+                        value={stat.val}
+                        onChange={(e) => stat.set(e.target.value)}
+                        type="number"
+                        min="0"
+                        className="w-full rounded-lg border border-white/10 bg-black/40 px-2.5 py-1.5 text-sm text-white outline-none text-center focus:border-cyan-300/40"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Achievements checkboxes */}
+              <div>
+                <h3 className="text-sm font-bold text-white mb-3">
+                  Succès Débloqués ({tempAchievements.length} / {ACHIEVEMENTS.length})
+                </h3>
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-3 border border-white/5 bg-black/40 rounded-xl">
+                  {ACHIEVEMENTS.map((ach) => {
+                    const hasAch = tempAchievements.includes(ach.id);
+                    return (
+                      <label 
+                        key={ach.id} 
+                        className={`flex items-center gap-2 text-xs p-1.5 rounded-lg border cursor-pointer transition ${
+                          hasAch ? "border-cyan-300/20 bg-cyan-400/5 text-cyan-200" : "border-transparent text-slate-400 hover:bg-white/[0.02]"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={hasAch}
+                          onChange={(e) => {
+                            setTempAchievements(prev => e.target.checked ? [...prev, ach.id] : prev.filter(id => id !== ach.id));
+                          }}
+                          className="rounded border-white/10 bg-white/5 accent-cyan-400 cursor-pointer"
+                        />
+                        <span className="truncate">{ach.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* History list */}
+              <div>
+                <h3 className="text-sm font-bold text-white mb-3">
+                  Historique des Parties ({tempHistory.length})
+                </h3>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto p-3 border border-white/5 bg-black/40 rounded-xl">
+                  {tempHistory.length === 0 ? (
+                    <p className="text-xs text-slate-500 italic text-center py-4">Aucune partie dans l'historique.</p>
+                  ) : (
+                    tempHistory.map((game) => (
+                      <div key={game.id} className="flex items-center justify-between text-xs bg-white/[0.02] border border-white/5 px-3 py-2 rounded-xl hover:border-white/10">
+                        <div className="flex gap-3 items-center">
+                          <span className={`font-bold px-1.5 py-0.5 rounded text-[9px] uppercase ${game.result === "won" ? "bg-emerald-400/10 text-emerald-400" : "bg-red-400/10 text-red-400"}`}>
+                            {game.result === "won" ? "Victoire" : "Défaite"}
+                          </span>
+                          <span className="text-slate-300 font-medium capitalize">
+                            {game.difficulty} ({game.mode}) — {game.time}s
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setTempHistory(prev => prev.filter(g => g.id !== game.id))}
+                          className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-500/10 transition"
+                          title="Supprimer cette partie"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end border-t border-white/5 pt-4 mt-4">
+              <button
+                onClick={() => setEditingUser(null)}
+                className="rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-xs font-semibold text-slate-400 hover:bg-white/10"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleSavePlayerEdit}
+                className="rounded-xl bg-cyan-300 px-6 py-2.5 text-xs font-bold text-slate-950 hover:bg-cyan-200 flex items-center gap-1.5"
+              >
+                <Check className="h-4 w-4" /> Enregistrer les modifications
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 };

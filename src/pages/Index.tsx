@@ -53,6 +53,21 @@ const Index = () => {
 
       if (!room || !userProfile) return;
 
+      // Cross-victory / End Game sync in Duel
+      const currentGame = useGameStore.getState().game;
+      if (room.status === "finished" && currentGame.result === "playing") {
+        const wonByMe = room.winner === userProfile.uid;
+        useGameStore.setState({
+          game: {
+            ...currentGame,
+            result: wonByMe ? "won" : "lost",
+            cells: wonByMe ? currentGame.cells : currentGame.cells.map(c => c.hasMine ? { ...c, status: "revealed" } : c)
+          },
+          isTimerRunning: false
+        });
+        toast.info(wonByMe ? "Félicitations, vous avez gagné le duel !" : "L'adversaire a terminé en premier ! Partie perdue.");
+      }
+
       const playerCount = Object.keys(room.players || {}).length;
 
       // Duel/Turn-based: quand le 2e joueur rejoint, passer en "playing"
@@ -151,11 +166,31 @@ const Index = () => {
       }
 
       // Update room
-      updateRoom(selectedRoomId, {
+      const isSolo = room ? room.mode === "solo" : true;
+      const isDuel = room ? room.mode === "duel" : false;
+      
+      let winnerUid = won ? userProfile.uid : null;
+      let statusToSet = (won || isSolo) ? "finished" : room?.status || "playing";
+
+      if (isDuel && !won) {
+        // If I lost in a duel, the other player is the winner
+        const otherPlayer = Object.keys(room.players).find(uid => uid !== userProfile.uid);
+        if (otherPlayer) {
+          winnerUid = otherPlayer;
+          statusToSet = "finished";
+        }
+      }
+
+      const updates: Record<string, unknown> = {
         [`players.${userProfile.uid}.result`]: game.result,
         [`players.${userProfile.uid}.revealedCount`]: game.cells.filter((c) => c.status === "revealed").length,
-        ...(won ? { winner: userProfile.uid, status: "finished" } : {}),
-      });
+      };
+
+      if (winnerUid) updates.winner = winnerUid;
+      if (statusToSet) updates.status = statusToSet;
+      if (game.explodedCellId) updates[`players.${userProfile.uid}.explodedCellId`] = game.explodedCellId;
+
+      updateRoom(selectedRoomId, updates);
 
       refreshProfile();
     }

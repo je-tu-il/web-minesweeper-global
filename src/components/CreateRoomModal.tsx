@@ -114,7 +114,7 @@ export function CreateRoomModal() {
         <p className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">Mode de jeu</p>
         <div className="mb-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
           {modes.map((m) => {
-            const isDisabled = m.value === "duel"; // Duel is disabled for now
+            const isDisabled = false;
             return (
               <button
                 key={m.value}

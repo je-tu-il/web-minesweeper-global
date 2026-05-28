@@ -10,7 +10,7 @@ import { fr } from "date-fns/locale";
 import { createEmptyGame, generateDuelBoard } from "@/lib/gameEngine";
 import { toast } from "sonner";
 import { subscribeUserPresence } from "@/lib/firestore";
-import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip } from "recharts";
+import { AreaChart, Area, ResponsiveContainer, YAxis, Tooltip } from "recharts";
 
 export default function Profile() {
   const { uid } = useParams();
@@ -19,7 +19,7 @@ export default function Profile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [allUsers, setAllUsers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"stats" | "history" | "social">("stats");
+  const [activeTab, setActiveTab] = useState<"stats" | "history" | "social" | "records">("stats");
   const [selectedGame, setSelectedGame] = useState<GameHistoryEntry | null>(null);
   const [isOnline, setIsOnline] = useState(false);
 
@@ -136,7 +136,7 @@ export default function Profile() {
                   <User className="h-12 w-12" />
                 </div>
               )}
-              {isOnline && (
+              {(isOnline || isMe) && (
                 <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-4 border-[#03070c] bg-green-500" title="En ligne" />
               )}
             </div>
@@ -185,12 +185,18 @@ export default function Profile() {
         </div>
 
         {/* Tabs */}
-        <div className="mb-6 flex gap-2 border-b border-white/10 pb-4">
+        <div className="mb-6 flex flex-wrap gap-2 border-b border-white/10 pb-4">
           <button
             onClick={() => setActiveTab("stats")}
             className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "stats" ? "bg-cyan-300/10 text-cyan-300" : "text-slate-400 hover:text-white"}`}
           >
             Statistiques & Succès
+          </button>
+          <button
+            onClick={() => setActiveTab("records")}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "records" ? "bg-cyan-300/10 text-cyan-300" : "text-slate-400 hover:text-white"}`}
+          >
+            Meilleurs Temps
           </button>
           <button
             onClick={() => setActiveTab("history")}
@@ -206,107 +212,281 @@ export default function Profile() {
           </button>
         </div>
 
-        {activeTab === "stats" && (
-          <div className="grid gap-6 md:grid-cols-[1fr_2fr]">
-            <div className="space-y-6">
-              <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
-                <div className="mb-4 flex items-center gap-2 text-white">
-                  <Trophy className="h-5 w-5 text-amber-300" />
-                  <h2 className="text-lg font-bold">Statistiques</h2>
-                </div>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Victoires</span>
-                    <span className="font-mono text-xl font-black text-emerald-400">{totalWins}</span>
+        {activeTab === "stats" && (() => {
+          const CATEGORIZED_ACHIEVEMENTS = [
+            {
+              title: "Désamorceur",
+              desc: "Remporter des victoires sur les différentes grilles de base.",
+              icon: "🏆",
+              tiers: [
+                { id: "win_beginner", label: "Débutant", tier: "bronze" as const },
+                { id: "win_intermediate", label: "Intermédiaire", tier: "silver" as const },
+                { id: "win_expert", label: "Expert", tier: "gold" as const },
+                { id: "win_custom_hard", label: "Légende (25×25+)", tier: "diamond" as const },
+              ]
+            },
+            {
+              title: "Puriste",
+              desc: "Gagner des parties sans poser un seul drapeau de repérage.",
+              icon: "🏴",
+              tiers: [
+                { id: "no_flag_beginner", label: "Débutant", tier: "bronze" as const },
+                { id: "no_flag_intermediate", label: "Intermédiaire", tier: "silver" as const },
+                { id: "no_flag_expert", label: "Expert", tier: "gold" as const },
+              ]
+            },
+            {
+              title: "Speedrunner",
+              desc: "Terminer et désamorcer la grille le plus rapidement possible.",
+              icon: "⚡",
+              tiers: [
+                { id: "speed_beginner", label: "Débutant (<15s)", tier: "bronze" as const },
+                { id: "speed_intermediate", label: "Intermédiaire (<60s)", tier: "silver" as const },
+                { id: "speed_expert", label: "Expert (<120s)", tier: "gold" as const },
+              ]
+            },
+            {
+              title: "Série de Victoires",
+              desc: "Enchaîner les victoires d'affilée sans aucune défaite.",
+              icon: "🔥",
+              tiers: [
+                { id: "win_streak_3", label: "3 de Suite", tier: "bronze" as const },
+                { id: "win_streak_5", label: "5 de Suite", tier: "silver" as const },
+                { id: "win_streak_10", label: "10 de Suite", tier: "gold" as const },
+              ]
+            },
+            {
+              title: "Accro au Protocol",
+              desc: "Cumuler du temps de jeu total en pleine analyse de mines.",
+              icon: "⏰",
+              tiers: [
+                { id: "playtime_1h", label: "1 Heure", tier: "bronze" as const },
+                { id: "playtime_10h", label: "10 Heures", tier: "silver" as const },
+                { id: "playtime_100h", label: "100 Heures", tier: "diamond" as const },
+              ]
+            }
+          ];
+
+          const SPECIAL_ACHIEVEMENTS = [
+            { id: "click_revealed", label: "Succès Louis", tier: "bronze" as const, icon: "🤡", desc: "Cliquer sur une case déjà révélée" },
+            { id: "first_duel_win", label: "Rival", tier: "silver" as const, icon: "⚔️", desc: "Gagner un duel" },
+            { id: "first_spectate", label: "Voyeur", tier: "bronze" as const, icon: "👀", desc: "Observer une partie" },
+            { id: "mystere_egirl", label: "E-Girl", tier: "silver" as const, icon: "🌸", desc: "Dire uwu dans le chat global", isHidden: true },
+            { id: "mystere_boom_first_click", label: "Pas de chance", tier: "bronze" as const, icon: "💣", desc: "Perdre sur le tout premier clic (impossible normalement)", isHidden: true },
+            { id: "mystere_1", label: "Curieux", tier: "bronze" as const, icon: "🔍", desc: "Cliquer sur 5 profils différents", isHidden: true },
+          ];
+
+          // S'assurer d'avoir au moins 2 points pour le tracé de la courbe
+          const displayData = winrateData.length === 1 
+            ? [{ rate: winrateData[0].rate }, { rate: winrateData[0].rate }] 
+            : winrateData;
+
+          return (
+            <div className="grid gap-6 md:grid-cols-[1fr_2fr]">
+              <div className="space-y-6">
+                <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
+                  <div className="mb-4 flex items-center gap-2 text-white">
+                    <Trophy className="h-5 w-5 text-amber-300" />
+                    <h2 className="text-lg font-bold">Statistiques</h2>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Défaites</span>
-                    <span className="font-mono text-xl font-black text-red-400">{totalLosses}</span>
-                  </div>
-                  <div className="h-px w-full bg-white/10" />
-                  <div className="flex flex-col gap-2">
+                  <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Win Rate</span>
-                      <span className="text-lg font-bold text-cyan-300">{winRate}%</span>
+                      <span className="text-slate-400">Victoires</span>
+                      <span className="font-mono text-xl font-black text-emerald-400">{totalWins}</span>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-900">
-                      <div className="h-full bg-cyan-400 transition-all" style={{ width: `${winRate}%` }} />
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Défaites</span>
+                      <span className="font-mono text-xl font-black text-red-400">{totalLosses}</span>
                     </div>
-                  </div>
-                  
-                  {/* Winrate Evolution Chart */}
-                  {winrateData.length > 1 && (
-                    <div className="mt-4 h-32 w-full">
-                      <p className="text-xs text-slate-500 mb-2">Évolution du Win Rate (récent)</p>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={winrateData}>
-                          <YAxis domain={[0, 100]} hide />
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: '#03070c', borderColor: '#22d3ee20', borderRadius: '1rem', color: '#fff' }}
-                            itemStyle={{ color: '#22d3ee' }}
-                            formatter={(val: number) => [`${val}%`, 'Win Rate']}
-                            labelFormatter={() => ''}
-                          />
-                          <Line type="monotone" dataKey="rate" stroke="#22d3ee" strokeWidth={2} dot={false} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-slate-400"><Flame className="h-4 w-4 text-orange-400" /> Série max</span>
-                    <span className="font-mono text-lg font-bold text-orange-400">{profile.stats?.bestWinStreak || 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-slate-400"><Clock className="h-4 w-4 text-purple-400" /> Temps joué</span>
-                    <span className="font-mono text-lg font-bold text-purple-400">
-                      {profile.stats?.playTime ? Math.floor(profile.stats.playTime / 3600) + 'h ' + Math.floor((profile.stats.playTime % 3600) / 60) + 'm' : '0m'}
-                    </span>
-                  </div>
-                </div>
-              </section>
-            </div>
-
-            <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
-              <div className="mb-6 flex items-center gap-2 text-white">
-                <Swords className="h-5 w-5 text-cyan-300" />
-                <h2 className="text-lg font-bold">Succès débloqués ({profile.achievements?.length || 0}/{ACHIEVEMENTS.length})</h2>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                {ACHIEVEMENTS.map((ach) => {
-                  const unlocked = profile.achievements?.includes(ach.id);
-                  const color = TIER_COLORS[ach.tier];
-                  const isMystery = ach.isHidden && !unlocked;
-                  
-                  return (
-                    <div
-                      key={ach.id}
-                      className={`relative overflow-hidden rounded-2xl border p-4 transition-all ${
-                        unlocked
-                          ? "border-white/10 bg-white/[0.04]"
-                          : "border-transparent bg-white/[0.01] opacity-50 grayscale hover:grayscale-0"
-                      }`}
-                    >
-                      {unlocked && (
-                        <div className="absolute -right-4 -top-4 h-16 w-16 opacity-20 blur-2xl" style={{ backgroundColor: color }} />
-                      )}
-                      <div className="mb-2 text-3xl">{isMystery ? "❓" : ach.icon}</div>
-                      <h3 className="text-sm font-bold text-white">{ach.name}</h3>
-                      <p className={`mt-1 text-xs text-slate-500 ${isMystery ? 'blur-sm select-none' : ''}`}>
-                        {isMystery ? 'Secret' : ach.description}
-                      </p>
-                      
-                      <div className="mt-3 inline-block rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest" style={{ color: unlocked ? color : '#64748b', backgroundColor: unlocked ? `${color}20` : '#1e293b' }}>
-                        {ach.tier}
+                    <div className="h-px w-full bg-white/10" />
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Win Rate</span>
+                        <span className="text-lg font-bold text-cyan-300">{winRate}%</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-900">
+                        <div className="h-full bg-cyan-400 transition-all" style={{ width: `${winRate}%` }} />
                       </div>
                     </div>
-                  );
-                })}
+                    
+                    {/* Winrate Evolution Chart (Glow & styled AreaChart) */}
+                    {displayData.length > 0 && (
+                      <div className="mt-4 h-36 w-full">
+                        <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">Évolution du Win Rate</p>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={displayData}>
+                            <defs>
+                              <linearGradient id="winrateGlow" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.35}/>
+                                <stop offset="95%" stopColor="#22d3ee" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <YAxis domain={[0, 100]} hide />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: '#03070c', borderColor: '#22d3ee20', borderRadius: '1rem', color: '#fff' }}
+                              itemStyle={{ color: '#22d3ee' }}
+                              formatter={(val: number) => [`${val}%`, 'Win Rate']}
+                              labelFormatter={() => ''}
+                            />
+                            <Area type="monotone" dataKey="rate" stroke="#22d3ee" strokeWidth={2.5} fillOpacity={1} fill="url(#winrateGlow)" dot={false} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1 text-slate-400"><Flame className="h-4 w-4 text-orange-400" /> Série max</span>
+                      <span className="font-mono text-lg font-bold text-orange-400">{profile.stats?.bestWinStreak || 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1 text-slate-400"><Clock className="h-4 w-4 text-purple-400" /> Temps joué</span>
+                      <span className="font-mono text-lg font-bold text-purple-400">
+                        {profile.stats?.playTime ? Math.floor(profile.stats.playTime / 3600) + 'h ' + Math.floor((profile.stats.playTime % 3600) / 60) + 'm' : '0m'}
+                      </span>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              {/* Achievements with Tiers */}
+              <div className="space-y-6">
+                <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
+                  <div className="mb-6 flex items-center gap-2 text-white">
+                    <Swords className="h-5 w-5 text-cyan-300" />
+                    <h2 className="text-lg font-bold">Succès Majeurs (Paliers)</h2>
+                  </div>
+                  
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {CATEGORIZED_ACHIEVEMENTS.map((cat) => (
+                      <div key={cat.title} className="rounded-2xl border border-white/5 bg-white/[0.02] p-5 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-2xl">{cat.icon}</span>
+                            <h3 className="text-base font-black text-white">{cat.title}</h3>
+                          </div>
+                          <p className="text-xs text-slate-400 mb-4">{cat.desc}</p>
+                        </div>
+                        <div className="flex gap-2 border-t border-white/5 pt-3">
+                          {cat.tiers.map((t) => {
+                            const hasAch = profile.achievements?.includes(t.id);
+                            const tierColor = TIER_COLORS[t.tier];
+                            const badgeIcon = t.tier === "bronze" ? "🥉" : t.tier === "silver" ? "🥈" : t.tier === "gold" ? "🥇" : "💎";
+                            return (
+                              <div
+                                key={t.id}
+                                className={`flex-1 flex flex-col items-center p-2 rounded-xl border transition-all ${
+                                  hasAch
+                                    ? "bg-slate-900/60 border-white/10 scale-100 shadow-[0_0_10px_rgba(255,255,255,0.02)]"
+                                    : "border-transparent bg-white/[0.01] opacity-30 grayscale"
+                                }`}
+                                title={t.label}
+                              >
+                                <span className="text-lg">{badgeIcon}</span>
+                                <span className="text-[9px] font-bold text-center mt-1 text-slate-300 truncate w-full">{t.label}</span>
+                                <span className="text-[8px] font-extrabold uppercase tracking-widest mt-0.5" style={{ color: hasAch ? tierColor : "#555" }}>
+                                  {t.tier}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
+                  <div className="mb-4 flex items-center gap-2 text-white">
+                    <Trophy className="h-5 w-5 text-amber-300" />
+                    <h2 className="text-lg font-bold">Succès Spéciaux & Mystères</h2>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {SPECIAL_ACHIEVEMENTS.map((ach) => {
+                      const hasAch = profile.achievements?.includes(ach.id);
+                      const isMystery = ach.isHidden && !hasAch;
+                      const tierColor = TIER_COLORS[ach.tier];
+                      return (
+                        <div
+                          key={ach.id}
+                          className={`relative overflow-hidden rounded-2xl border p-4 transition-all ${
+                            hasAch
+                              ? "border-white/10 bg-white/[0.04]"
+                              : "border-transparent bg-white/[0.01] opacity-30 grayscale"
+                          }`}
+                        >
+                          {hasAch && (
+                            <div className="absolute -right-4 -top-4 h-12 w-12 opacity-15 blur-xl" style={{ backgroundColor: tierColor }} />
+                          )}
+                          <div className="mb-2 text-2xl">{isMystery ? "❓" : ach.icon}</div>
+                          <h3 className="text-xs font-bold text-white truncate">{ach.label}</h3>
+                          <p className={`mt-1 text-[10px] text-slate-500 leading-normal ${isMystery ? 'blur-sm select-none' : ''}`}>
+                            {isMystery ? 'Secret' : ach.desc}
+                          </p>
+                          <div className="mt-2.5 inline-block rounded px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wider" style={{ color: hasAch ? tierColor : '#64748b', backgroundColor: hasAch ? `${tierColor}15` : '#1e293b' }}>
+                            {ach.tier}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              </div>
+            </div>
+          );
+        })()}
+
+        {activeTab === "records" && (() => {
+          const getBestTime = (diff: string) => {
+            const wins = (profile.history || []).filter(g => g.result === "won" && g.difficulty === diff);
+            if (wins.length === 0) return null;
+            return Math.min(...wins.map(g => g.time));
+          };
+          const bTime = getBestTime("beginner");
+          const iTime = getBestTime("intermediate");
+          const eTime = getBestTime("expert");
+
+          return (
+            <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 text-center">
+              <div className="mb-6 flex items-center justify-center gap-2 text-white">
+                <Trophy className="h-5 w-5 text-amber-300" />
+                <h2 className="text-lg font-bold">Meilleurs Temps Personnels</h2>
+              </div>
+              <p className="text-sm text-slate-400 mb-8 max-w-md mx-auto">
+                Vos temps records pour désamorcer les grilles standards du protocole principal.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-3">
+                {[
+                  { title: "Débutant", size: "9 × 9", mines: 10, time: bTime, color: "from-emerald-400 to-green-500", glow: "rgba(52,211,153,0.15)" },
+                  { title: "Intermédiaire", size: "16 × 16", mines: 40, time: iTime, color: "from-cyan-400 to-blue-500", glow: "rgba(34,211,238,0.15)" },
+                  { title: "Expert", size: "30 × 16", mines: 99, time: eTime, color: "from-amber-400 to-orange-500", glow: "rgba(245,158,11,0.15)" },
+                ].map((preset) => (
+                  <div
+                    key={preset.title}
+                    className="relative overflow-hidden rounded-[2rem] border border-white/5 bg-slate-950/50 p-6 backdrop-blur-xl transition hover:border-white/15"
+                    style={{ boxShadow: `0 10px 30px -10px ${preset.glow}` }}
+                  >
+                    <div className="mb-2">
+                      <span className={`inline-block rounded-full bg-gradient-to-r ${preset.color} px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-slate-950`}>
+                        {preset.title}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">{preset.size} · {preset.mines} mines</p>
+                    <div className="my-6">
+                      {preset.time !== null ? (
+                        <p className="font-mono text-4xl font-black text-white">
+                          {preset.time}
+                          <span className="text-lg font-medium text-slate-400 ml-1">s</span>
+                        </p>
+                      ) : (
+                        <p className="text-sm text-slate-500 font-semibold italic py-2">Non enregistré</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </section>
-          </div>
-        )}
+          );
+        })()}
 
         {activeTab === "history" && (
           <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">

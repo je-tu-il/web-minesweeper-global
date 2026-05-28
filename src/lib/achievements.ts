@@ -50,15 +50,22 @@ export function checkAchievements(
     // ── Puriste — gagner sans drapeau ──
     if (!gameState.flagsUsed) {
       unlock("no_flag");
+      if (matchesPreset("beginner")) unlock("no_flag_beginner");
+      if (matchesPreset("intermediate")) unlock("no_flag_intermediate");
+      if (matchesPreset("expert")) unlock("no_flag_expert");
     }
 
     // ── Speed ──
     if (timer <= 30) unlock("speed_30");
     if (timer <= 10) unlock("speed_10");
+    if (matchesPreset("beginner") && timer <= 15) unlock("speed_beginner");
+    if (matchesPreset("intermediate") && timer <= 60) unlock("speed_intermediate");
+    if (matchesPreset("expert") && timer <= 120) unlock("speed_expert");
 
     // ── Win streaks (le streak est déjà incrémenté dans le profile) ──
     const newStreak = (profile.stats.winStreak || 0) + 1; // +1 car pas encore persisté
     if (newStreak >= 3) unlock("win_streak_3");
+    if (newStreak >= 5) unlock("win_streak_5");
     if (newStreak >= 10) unlock("win_streak_10");
   }
 

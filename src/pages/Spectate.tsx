@@ -1,53 +1,58 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { subscribeRoom } from "@/lib/firestore";
-import { useGameStore } from "@/store/gameStore";
+import { subscribeRoom, addAchievements } from "@/lib/firestore";
+import { useAuth } from "@/contexts/AuthContext";
 import { GameBoard } from "@/components/GameBoard";
 import { RoomChat } from "@/components/RoomChat";
-import type { Room } from "@/types";
+import { createEmptyGame, generateDuelBoard, generateSafeBoardSeeded } from "@/lib/gameEngine";
+import type { Room, RoomPlayer } from "@/types";
 import { ArrowLeft, Eye, Users } from "lucide-react";
 
 export default function Spectate() {
   const { roomId } = useParams();
+  const { userProfile, refreshProfile } = useAuth();
   const [room, setRoom] = useState<Room | null>(null);
-  const { restoreFromSync, resetGame } = useGameStore();
+  const [timer, setTimer] = useState(0);
 
+  // Subscribe to room
   useEffect(() => {
     if (!roomId) return;
     const unsub = subscribeRoom(roomId, (r) => {
       setRoom(r);
-      if (r) {
-        // Merge states from all players
-        const allRevealed = new Set<string>();
-        const allFlagged = new Set<string>();
-        const allQuestion = new Set<string>();
-        let explodedId: string | undefined;
-
-        Object.values(r.players).forEach(p => {
-          p.revealedCells?.forEach(c => allRevealed.add(c));
-          p.flaggedCells?.forEach(c => allFlagged.add(c));
-          p.questionCells?.forEach(c => allQuestion.add(c));
-          if (p.explodedCellId) explodedId = p.explodedCellId;
-        });
-
-        // Restaurer l'état du jeu localement à chaque mise à jour (lecture seule)
-        restoreFromSync(
-          r.gridConfig,
-          r.seed,
-          r.mode,
-          Array.from(allRevealed),
-          Array.from(allFlagged),
-          Array.from(allQuestion),
-          explodedId,
-          r.firstClick
-        );
-      }
     });
     return () => {
       unsub();
-      resetGame();
     };
-  }, [roomId, restoreFromSync, resetGame]);
+  }, [roomId]);
+
+  // Unlock "Voyeur" achievement
+  useEffect(() => {
+    if (userProfile && !userProfile.achievements?.includes("first_spectate")) {
+      addAchievements(userProfile.uid, ["first_spectate"]).then(() => {
+        refreshProfile();
+      });
+    }
+  }, [userProfile, refreshProfile]);
+
+  // Dynamic spectator timer
+  useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    if (room && room.status === "playing") {
+      intervalId = setInterval(() => {
+        setTimer((t) => t + 1);
+      }, 1000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [room?.status]);
+
+  // Reset timer on fresh room play
+  useEffect(() => {
+    if (room && room.status === "waiting") {
+      setTimer(0);
+    }
+  }, [room?.status]);
 
   if (!room) {
     return (
@@ -63,11 +68,50 @@ export default function Spectate() {
 
   const players = Object.values(room.players || {});
 
+  // Reconstruct board state for a single player
+  const getPlayerBoardState = (p: RoomPlayer) => {
+    let base = createEmptyGame(room.gridConfig);
+    if (room.mode === "duel") {
+      base = generateDuelBoard(room.gridConfig, room.seed);
+    } else if (room.firstClick) {
+      base = generateSafeBoardSeeded(base, room.firstClick.x, room.firstClick.y, room.seed);
+    }
+
+    const revealedSet = new Set(p.revealedCells || []);
+    const flaggedSet = new Set(p.flaggedCells || []);
+    const questionSet = new Set(p.questionCells || []);
+
+    const cells = base.cells.map((cell) => ({
+      ...cell,
+      status: revealedSet.has(cell.id) ? ("revealed" as const) : cell.status,
+      mark: flaggedSet.has(cell.id) ? ("flag" as const) : questionSet.has(cell.id) ? ("question" as const) : cell.mark,
+    }));
+
+    const safeCells = cells.filter((c) => !c.hasMine);
+    const won = safeCells.every((c) => c.status === "revealed");
+    const lost = !!p.explodedCellId || p.result === "lost";
+    const result = won ? "won" : lost ? "lost" : "playing";
+
+    // If lost, reveal all mines on their board
+    const finalCells = lost
+      ? cells.map(c => c.hasMine ? { ...c, status: "revealed" as const } : c)
+      : cells;
+
+    return {
+      cells: finalCells,
+      config: room.gridConfig,
+      result,
+      explodedCellId: p.explodedCellId,
+    };
+  };
+
+  const isDuelSeparate = room.mode === "duel" && room.duelMode === "separate";
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#03070c] text-slate-100">
       <div className="pointer-events-none fixed inset-0 opacity-[0.04] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:44px_44px]" />
       
-      <div className="relative mx-auto max-w-6xl px-4 py-6">
+      <div className="relative mx-auto max-w-7xl px-4 py-6">
         <div className="mb-6 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition">
             <ArrowLeft className="h-4 w-4" />
@@ -81,12 +125,12 @@ export default function Spectate() {
 
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           {/* Main Area */}
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/70 px-6 py-4 backdrop-blur-xl">
               <div className="flex items-center gap-3">
                 <Users className="h-5 w-5 text-slate-400" />
                 <span className="font-semibold text-white">
-                  {players.map(p => p.username).join(" vs ")}
+                  {players.length > 0 ? players.map((p) => p.username).join(" vs ") : "Attente joueurs..."}
                 </span>
               </div>
               <div className="flex items-center gap-3 text-sm">
@@ -100,10 +144,60 @@ export default function Spectate() {
               </div>
             </div>
 
-            <div className="flex justify-center">
-              {/* Le plateau est toujours disabled en spectateur */}
-              <GameBoard onCellClick={() => {}} onCellRightClick={() => {}} disabled={true} isSpectator={true} />
-            </div>
+            {players.length === 0 ? (
+              <div className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-16 text-center backdrop-blur-xl">
+                <p className="text-slate-500">Aucun joueur n'est connecté.</p>
+              </div>
+            ) : isDuelSeparate ? (
+              /* Side-by-side layout in 1v1 separate duels */
+              <div className="flex flex-col gap-6 xl:flex-row xl:justify-center items-center">
+                {players.map((p) => {
+                  const boardState = getPlayerBoardState(p);
+                  return (
+                    <div key={p.uid} className="flex flex-col items-center gap-3 w-full max-w-lg">
+                      <div className="text-sm font-bold text-cyan-300 uppercase tracking-wider">
+                        Plateau de {p.username} :{" "}
+                        <span className={boardState.result === "won" ? "text-emerald-400" : boardState.result === "lost" ? "text-red-400" : "text-amber-300"}>
+                          {boardState.result === "won" ? "Victoire" : boardState.result === "lost" ? "Échec" : "En cours"}
+                        </span>
+                      </div>
+                      <GameBoard
+                        onCellClick={() => {}}
+                        onCellRightClick={() => {}}
+                        disabled={true}
+                        isSpectator={true}
+                        customCells={boardState.cells}
+                        customConfig={boardState.config}
+                        customResult={boardState.result}
+                        customExplodedCellId={boardState.explodedCellId}
+                        customTimer={timer}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* Standard merged single-board spectator layout */
+              <div className="flex justify-center">
+                {(() => {
+                  const p = players[0];
+                  const boardState = getPlayerBoardState(p);
+                  return (
+                    <GameBoard
+                      onCellClick={() => {}}
+                      onCellRightClick={() => {}}
+                      disabled={true}
+                      isSpectator={true}
+                      customCells={boardState.cells}
+                      customConfig={boardState.config}
+                      customResult={boardState.result}
+                      customExplodedCellId={boardState.explodedCellId}
+                      customTimer={timer}
+                    />
+                  );
+                })()}
+              </div>
+            )}
           </div>
 
           {/* Chat Sidebar */}
