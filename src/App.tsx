@@ -8,6 +8,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 
 import Index from "./pages/Index";
 import Admin from "./pages/Admin";
+import Profile from "./pages/Profile";
+import Spectate from "./pages/Spectate";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +24,9 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile/:uid" element={<Profile />} />
+            <Route path="/spectate/:roomId" element={<Spectate />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

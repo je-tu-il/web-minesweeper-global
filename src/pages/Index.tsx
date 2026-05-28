@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUiStore } from "@/store/uiStore";
 import { useGameStore } from "@/store/gameStore";
-import { subscribeRoom, updateRoom, updateStats } from "@/lib/firestore";
+import { subscribeRoom, updateRoom, updateStats, syncGameState, submitScore, addAchievements } from "@/lib/firestore";
+import { checkAchievements } from "@/lib/achievements";
 import { AuthBar } from "@/components/AuthBar";
 import { GameBoard } from "@/components/GameBoard";
 import { LobbyPanel } from "@/components/LobbyPanel";
@@ -10,17 +11,20 @@ import { RoomChat } from "@/components/RoomChat";
 import { UsernameModal } from "@/components/UsernameModal";
 import { CreateRoomModal } from "@/components/CreateRoomModal";
 import { PlayerStats } from "@/components/PlayerStats";
+import { AchievementToast } from "@/components/AchievementToast";
 import { Bomb, Swords, Clock, Crosshair, MessageCircle, LayoutGrid } from "lucide-react";
 import type { Room } from "@/types";
 
 const Index = () => {
   const { user, userProfile, isLoading, isBanned, signInWithGoogle, refreshProfile } = useAuth();
   const { activePanel, selectedRoomId, showUsernameModal, showCreateRoomModal, setActivePanel, setSelectedRoomId, setShowUsernameModal } = useUiStore();
-  const { game, handleReveal, handleFlag, tickTimer, isTimerRunning, initSoloGame, initDuelGame, initTurnBasedGame } = useGameStore();
+  const { game, timer, handleReveal, handleFlag, tickTimer, isTimerRunning, initSoloGame, initDuelGame, initTurnBasedGame } = useGameStore();
 
   const roomRef = useRef<Room | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const statsUpdatedRef = useRef(false);
+
+  const [newAchievements, setNewAchievements] = useState<string[]>([]);
 
   // Timer
   useEffect(() => {
@@ -59,12 +63,41 @@ const Index = () => {
     return unsub;
   }, [selectedRoomId, userProfile, isBanned, initDuelGame, initTurnBasedGame]);
 
-  // Update stats when game ends
+  // Update stats, achievements, leaderboard when game ends
   useEffect(() => {
     if (game.result !== "playing" && userProfile && selectedRoomId && !statsUpdatedRef.current) {
       statsUpdatedRef.current = true;
+      const room = roomRef.current;
       const won = game.result === "won";
+      
+      // Mettre à jour les stats
       updateStats(userProfile.uid, won);
+
+      // Vérifier les succès
+      const mode = room ? room.mode : "solo";
+      const unlocked = checkAchievements(userProfile, game, timer, mode);
+      if (unlocked.length > 0) {
+        addAchievements(userProfile.uid, unlocked);
+        setNewAchievements(unlocked);
+      }
+
+      // Soumettre au leaderboard si victoire solo
+      if (won && room?.mode === "solo") {
+        // Déterminer la difficulté en fonction de la taille
+        let diffKey = "custom";
+        if (game.config.width === 9 && game.config.mines === 10) diffKey = "beginner";
+        else if (game.config.width === 16 && game.config.mines === 40) diffKey = "intermediate";
+        else if (game.config.width === 30 && game.config.mines === 99) diffKey = "expert";
+        
+        submitScore({
+          uid: userProfile.uid,
+          username: userProfile.username,
+          time: timer,
+          difficulty: diffKey,
+          gridConfig: game.config,
+          date: Date.now()
+        });
+      }
 
       // Update room
       updateRoom(selectedRoomId, {
@@ -75,7 +108,7 @@ const Index = () => {
 
       refreshProfile();
     }
-  }, [game.result, userProfile, selectedRoomId, game.cells, refreshProfile]);
+  }, [game.result, userProfile, selectedRoomId, game, timer, refreshProfile]);
 
   // Reset stats flag when starting new game
   useEffect(() => {
@@ -91,6 +124,15 @@ const Index = () => {
     }
   }, [userProfile, setShowUsernameModal]);
 
+  // Helper pour sync Firestore
+  const pushGameStateToFirestore = (newGame: typeof game) => {
+    if (!selectedRoomId) return;
+    const revealed = newGame.cells.filter(c => c.status === "revealed").map(c => c.id);
+    const flagged = newGame.cells.filter(c => c.mark === "flag").map(c => c.id);
+    const question = newGame.cells.filter(c => c.mark === "question").map(c => c.id);
+    syncGameState(selectedRoomId, revealed, flagged, question, newGame.explodedCellId);
+  };
+
   const onCellClick = useCallback(
     (cellId: string) => {
       if (!userProfile || !selectedRoomId) return;
@@ -100,6 +142,7 @@ const Index = () => {
       if (room?.mode === "turn-based" && room.turn !== userProfile.uid) return;
 
       const newGame = handleReveal(cellId);
+      pushGameStateToFirestore(newGame);
 
       // Turn-based: passer le tour
       if (room?.mode === "turn-based" && newGame.result === "playing") {
@@ -116,7 +159,8 @@ const Index = () => {
     (cellId: string) => {
       const room = roomRef.current;
       if (room?.mode === "turn-based" && room.turn !== userProfile?.uid) return;
-      handleFlag(cellId);
+      const newGame = handleFlag(cellId);
+      pushGameStateToFirestore(newGame);
     },
     [userProfile, handleFlag],
   );
@@ -207,6 +251,7 @@ const Index = () => {
 
       <div className="relative mx-auto max-w-7xl px-4 py-4 sm:px-6">
         <AuthBar />
+        <AchievementToast achievementIds={newAchievements} onDone={() => setNewAchievements([])} />
 
         {/* Modals */}
         {showUsernameModal && <UsernameModal />}
@@ -286,7 +331,7 @@ const Index = () => {
                       <div className="flex items-center gap-2 text-sm">
                         <span className="text-slate-500">vs</span>
                         <span className="font-semibold text-cyan-200">{opponentInfo.username}</span>
-                        <span className="text-slate-500">({opponentInfo.revealedCount} cellules)</span>
+                        <span className="text-slate-500">{opponentInfo.result !== "playing" ? "(Terminé)" : "(En jeu)"}</span>
                       </div>
                     )}
                   </div>

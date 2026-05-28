@@ -30,6 +30,8 @@ export const createEmptyGame = (config: GridConfig): GameState => ({
   config,
   firstClickDone: false,
   result: "playing",
+  flagsUsed: false,
+  clickedRevealed: false,
   cells: Array.from({ length: config.width * config.height }, (_, index) => {
     const x = index % config.width;
     const y = Math.floor(index / config.width);
@@ -121,6 +123,11 @@ export const revealCell = (state: GameState, id: string, isTrap: boolean): GameS
   const target = state.cells.find((cell) => cell.id === id);
   if (!target || target.mark === "flag") return state;
 
+  // Succès Louis : clic sur case déjà révélée
+  if (target.status === "revealed") {
+    return { ...state, clickedRevealed: true };
+  }
+
   // Shadowban trap: first click = instant death
   if (isTrap && !state.firstClickDone) {
     const cells = state.cells.map((cell) =>
@@ -147,8 +154,11 @@ export const revealCell = (state: GameState, id: string, isTrap: boolean): GameS
 export const cycleMark = (state: GameState, id: string): GameState => {
   if (state.result !== "playing") return state;
   const nextMark = (mark: CellMark): CellMark => (mark === null ? "flag" : mark === "flag" ? "question" : null);
+  const target = state.cells.find((c) => c.id === id);
+  const willFlag = target && target.status === "hidden" && target.mark === null;
   return {
     ...state,
+    flagsUsed: state.flagsUsed || !!willFlag,
     cells: state.cells.map((cell) =>
       cell.id === id && cell.status === "hidden" ? { ...cell, mark: nextMark(cell.mark) } : cell,
     ),

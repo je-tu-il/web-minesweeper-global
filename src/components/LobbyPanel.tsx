@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUiStore } from "@/store/uiStore";
 import { useGameStore } from "@/store/gameStore";
-import { subscribeRooms, joinRoom, deleteRoom } from "@/lib/firestore";
+import { subscribeRooms, joinRoom, deleteRoom, leaveRoom } from "@/lib/firestore";
 import type { Room } from "@/types";
-import { Plus, Users, Crosshair, Swords, Clock, Trash2, LogIn } from "lucide-react";
+import { Plus, Users, Crosshair, Swords, Clock, Trash2, LogIn, LogOut } from "lucide-react";
 
 const modeIcons: Record<string, typeof Crosshair> = {
   solo: Crosshair,
@@ -33,7 +33,7 @@ const statusColors: Record<string, string> = {
 export function LobbyPanel() {
   const { userProfile, isBanned } = useAuth();
   const { setSelectedRoomId, setActivePanel, setShowCreateRoomModal } = useUiStore();
-  const { initSoloGame, initDuelGame, initTurnBasedGame } = useGameStore();
+  const { initSoloGame, initDuelGame, initTurnBasedGame, restoreFromSync } = useGameStore();
   const [rooms, setRooms] = useState<Room[]>([]);
 
   useEffect(() => {
@@ -49,12 +49,24 @@ export function LobbyPanel() {
     const playerCount = Object.keys(room.players).length;
     const isAlreadyIn = room.players[userProfile.uid];
 
-    // Si déjà dans la room, juste naviguer
+    // Si déjà dans la room, juste naviguer et restaurer l'état
     if (isAlreadyIn) {
-      const trap = isBanned;
-      if (room.mode === "solo") initSoloGame(room.gridConfig, trap);
-      else if (room.mode === "duel") initDuelGame(room.gridConfig, room.seed, trap);
-      else initTurnBasedGame(room.gridConfig, trap);
+      if (room.status === "playing" || room.status === "finished") {
+        restoreFromSync(
+          room.gridConfig,
+          room.seed,
+          room.mode,
+          room.revealedCells || [],
+          room.flaggedCells || [],
+          room.questionCells || [],
+          room.explodedCellId
+        );
+      } else {
+        // En attente
+        const trap = isBanned;
+        if (room.mode === "duel") initDuelGame(room.gridConfig, room.seed, trap);
+        else initTurnBasedGame(room.gridConfig, trap);
+      }
       setSelectedRoomId(room.roomId);
       setActivePanel("game");
       return;
@@ -81,6 +93,12 @@ export function LobbyPanel() {
 
   const handleDelete = async (roomId: string) => {
     await deleteRoom(roomId);
+  };
+
+  const handleLeave = async (roomId: string) => {
+    if (userProfile) {
+      await leaveRoom(roomId, userProfile.uid);
+    }
   };
 
   return (
@@ -153,7 +171,7 @@ export function LobbyPanel() {
                       )}
                     </button>
                   )}
-                  {isCreator && (
+                  {isCreator ? (
                     <button
                       onClick={() => handleDelete(room.roomId)}
                       className="rounded-lg border border-red-400/20 bg-red-400/10 p-1.5 text-red-300 transition hover:bg-red-400/20"
@@ -161,7 +179,15 @@ export function LobbyPanel() {
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
-                  )}
+                  ) : isInRoom ? (
+                    <button
+                      onClick={() => handleLeave(room.roomId)}
+                      className="rounded-lg border border-red-400/20 bg-red-400/10 p-1.5 text-red-300 transition hover:bg-red-400/20"
+                      title="Quitter"
+                    >
+                      <LogOut className="h-3 w-3" />
+                    </button>
+                  ) : null}
                 </div>
               </div>
             );

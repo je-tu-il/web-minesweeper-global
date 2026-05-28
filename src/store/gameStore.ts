@@ -18,6 +18,16 @@ interface GameStore {
   resetGame: () => void;
   tickTimer: () => void;
   stopTimer: () => void;
+  /** Restaure le state depuis Firestore (reprendre / spectate) */
+  restoreFromSync: (
+    config: GridConfig,
+    seed: number,
+    mode: RoomMode,
+    revealedCells: string[],
+    flaggedCells: string[],
+    questionCells: string[],
+    explodedCellId?: string,
+  ) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -95,4 +105,41 @@ export const useGameStore = create<GameStore>((set, get) => ({
   tickTimer: () => set((s) => (s.isTimerRunning ? { timer: s.timer + 1 } : s)),
 
   stopTimer: () => set({ isTimerRunning: false }),
+
+  restoreFromSync: (config, seed, mode, revealedCells, flaggedCells, questionCells, explodedCellId) => {
+    // Recréer le board avec le seed (identique pour tous les joueurs)
+    const base = mode === "solo"
+      ? createEmptyGame(config)
+      : generateDuelBoard(config, seed);
+
+    const revealedSet = new Set(revealedCells);
+    const flaggedSet = new Set(flaggedCells);
+    const questionSet = new Set(questionCells);
+
+    const cells = base.cells.map((cell) => ({
+      ...cell,
+      status: revealedSet.has(cell.id) ? ("revealed" as const) : cell.status,
+      mark: flaggedSet.has(cell.id) ? ("flag" as const) : questionSet.has(cell.id) ? ("question" as const) : cell.mark,
+    }));
+
+    const safeCells = cells.filter((c) => !c.hasMine);
+    const won = safeCells.every((c) => c.status === "revealed");
+    const lost = !!explodedCellId;
+    const result = won ? "won" : lost ? "lost" : "playing";
+
+    set({
+      game: {
+        ...base,
+        cells,
+        firstClickDone: revealedCells.length > 0,
+        result,
+        explodedCellId,
+        flagsUsed: flaggedCells.length > 0,
+        clickedRevealed: false,
+      },
+      mode,
+      timer: 0,
+      isTimerRunning: result === "playing",
+    });
+  },
 }));

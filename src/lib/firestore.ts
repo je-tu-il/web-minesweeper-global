@@ -12,10 +12,11 @@ import {
   increment,
   query,
   orderBy,
+  where,
   limit,
 } from "firebase/firestore";
 import { firestore } from "./firebase";
-import type { UserProfile, Room, RoomPlayer } from "@/types";
+import type { UserProfile, Room, RoomPlayer, LeaderboardEntry } from "@/types";
 
 /* ================================================================
    Users
@@ -38,9 +39,47 @@ export async function getAllUsers(): Promise<UserProfile[]> {
 
 export async function updateStats(uid: string, won: boolean): Promise<void> {
   const ref = doc(firestore, "users", uid);
-  await updateDoc(ref, {
-    [won ? "stats.totalWins" : "stats.totalLosses"]: increment(1),
-  });
+  if (won) {
+    await updateDoc(ref, {
+      "stats.totalWins": increment(1),
+      "stats.winStreak": increment(1),
+    });
+    // Mettre à jour bestWinStreak si nécessaire (côté client, après lecture)
+  } else {
+    await updateDoc(ref, {
+      "stats.totalLosses": increment(1),
+      "stats.winStreak": 0,
+    });
+  }
+}
+
+export async function updateBestWinStreak(uid: string, streak: number): Promise<void> {
+  const ref = doc(firestore, "users", uid);
+  await updateDoc(ref, { "stats.bestWinStreak": streak });
+}
+
+export async function addAchievements(uid: string, achievementIds: string[]): Promise<void> {
+  if (achievementIds.length === 0) return;
+  const ref = doc(firestore, "users", uid);
+  await updateDoc(ref, { achievements: arrayUnion(...achievementIds) });
+}
+
+/* ================================================================
+   Follow system (unilatéral)
+   ================================================================ */
+
+export async function followUser(myUid: string, targetUid: string): Promise<void> {
+  const myRef = doc(firestore, "users", myUid);
+  const targetRef = doc(firestore, "users", targetUid);
+  await updateDoc(myRef, { following: arrayUnion(targetUid) });
+  await updateDoc(targetRef, { friends: arrayUnion(myUid) });
+}
+
+export async function unfollowUser(myUid: string, targetUid: string): Promise<void> {
+  const myRef = doc(firestore, "users", myUid);
+  const targetRef = doc(firestore, "users", targetUid);
+  await updateDoc(myRef, { following: arrayRemove(targetUid) });
+  await updateDoc(targetRef, { friends: arrayRemove(myUid) });
 }
 
 /* ================================================================
@@ -102,6 +141,20 @@ export async function joinRoom(roomId: string, uid: string, player: RoomPlayer):
   await updateDoc(ref, { [`players.${uid}`]: player });
 }
 
+export async function leaveRoom(roomId: string, uid: string): Promise<void> {
+  const ref = doc(firestore, "rooms", roomId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const room = snap.data() as Room;
+  const players = { ...room.players };
+  delete players[uid];
+  if (Object.keys(players).length === 0) {
+    await deleteDoc(ref);
+  } else {
+    await updateDoc(ref, { players });
+  }
+}
+
 export async function updateRoom(roomId: string, data: Record<string, unknown>): Promise<void> {
   const ref = doc(firestore, "rooms", roomId);
   await updateDoc(ref, data);
@@ -109,4 +162,54 @@ export async function updateRoom(roomId: string, data: Record<string, unknown>):
 
 export async function deleteRoom(roomId: string): Promise<void> {
   await deleteDoc(doc(firestore, "rooms", roomId));
+}
+
+/** Sync le game state dans la room (pour reprendre + spectate) */
+export async function syncGameState(
+  roomId: string,
+  revealedCells: string[],
+  flaggedCells: string[],
+  questionCells: string[],
+  explodedCellId?: string,
+): Promise<void> {
+  const ref = doc(firestore, "rooms", roomId);
+  const data: Record<string, unknown> = { revealedCells, flaggedCells, questionCells };
+  if (explodedCellId) data.explodedCellId = explodedCellId;
+  await updateDoc(ref, data);
+}
+
+/* ================================================================
+   Leaderboard
+   ================================================================ */
+
+export async function submitScore(entry: Omit<LeaderboardEntry, "id">): Promise<void> {
+  const ref = doc(collection(firestore, "leaderboard"));
+  await setDoc(ref, { ...entry, id: ref.id });
+}
+
+export async function getLeaderboard(difficulty: string, max = 50): Promise<LeaderboardEntry[]> {
+  const q = query(
+    collection(firestore, "leaderboard"),
+    where("difficulty", "==", difficulty),
+    orderBy("time", "asc"),
+    limit(max),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data() as LeaderboardEntry);
+}
+
+export function subscribeLeaderboard(
+  difficulty: string,
+  callback: (entries: LeaderboardEntry[]) => void,
+  max = 20,
+): () => void {
+  const q = query(
+    collection(firestore, "leaderboard"),
+    where("difficulty", "==", difficulty),
+    orderBy("time", "asc"),
+    limit(max),
+  );
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => d.data() as LeaderboardEntry));
+  });
 }

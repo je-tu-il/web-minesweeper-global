@@ -70,9 +70,9 @@ export function AuthBar() {
           </Link>
         )}
 
-        <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-sm font-bold text-white">
+        <Link to="/profile" className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-sm font-bold text-white transition hover:scale-105 hover:shadow-lg hover:shadow-cyan-400/20" title="Mon Profil">
           {initial}
-        </div>
+        </Link>
 
         <button
           onClick={logout}
