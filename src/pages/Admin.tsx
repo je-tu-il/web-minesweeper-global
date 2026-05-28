@@ -297,7 +297,7 @@ const Admin = () => {
                       <span className="text-xs text-slate-400">{room.status}</span>
                     </div>
                     <p className="text-xs text-slate-500">
-                      ID: {room.roomId.slice(0, 8)}... | Joueurs: {Object.keys(room.players).length}
+                      ID: {room.roomId.slice(0, 8)}... | Joueurs: {Object.keys(room.players || {}).length}
                     </p>
                   </div>
                   <button

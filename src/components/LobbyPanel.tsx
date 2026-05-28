@@ -48,8 +48,8 @@ export function LobbyPanel() {
   const handleJoin = async (room: Room) => {
     if (!userProfile) return;
 
-    const playerCount = Object.keys(room.players).length;
-    const isAlreadyIn = room.players[userProfile.uid];
+    const playerCount = Object.keys(room.players || {}).length;
+    const isAlreadyIn = room.players && room.players[userProfile.uid];
 
     // Si déjà dans la room, juste naviguer et restaurer l'état
     if (isAlreadyIn) {
@@ -135,11 +135,11 @@ export function LobbyPanel() {
         ) : (
           activeRooms.map((room) => {
             const ModeIcon = modeIcons[room.mode] || Crosshair;
-            const playerCount = Object.keys(room.players).length;
+            const playerCount = Object.keys(room.players || {}).length;
             const isCreator = room.createdBy === userProfile?.uid;
-            const isInRoom = userProfile ? !!room.players[userProfile.uid] : false;
+            const isInRoom = userProfile ? !!(room.players && room.players[userProfile.uid]) : false;
             const canJoin = room.status === "waiting" && playerCount < room.maxPlayers && !isInRoom;
-            const creator = Object.values(room.players).find((p) => p.uid === room.createdBy);
+            const creator = Object.values(room.players || {}).find((p) => p.uid === room.createdBy);
 
             return (
               <div

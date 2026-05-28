@@ -49,7 +49,7 @@ export default function Spectate() {
     );
   }
 
-  const players = Object.values(room.players);
+  const players = Object.values(room.players || {});
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#03070c] text-slate-100">

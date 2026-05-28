@@ -50,7 +50,7 @@ const Index = () => {
 
       if (!room || !userProfile) return;
 
-      const playerCount = Object.keys(room.players).length;
+      const playerCount = Object.keys(room.players || {}).length;
 
       // Duel/Turn-based: quand le 2e joueur rejoint, passer en "playing"
       if (room.status === "waiting" && playerCount >= room.maxPlayers) {
@@ -159,7 +159,7 @@ const Index = () => {
 
       // Turn-based: passer le tour
       if (room?.mode === "turn-based" && newGame.result === "playing") {
-        const otherPlayer = Object.keys(room.players).find((uid) => uid !== userProfile.uid);
+        const otherPlayer = Object.keys(room.players || {}).find((uid) => uid !== userProfile.uid);
         if (otherPlayer) {
           updateRoom(selectedRoomId, { turn: otherPlayer });
         }
@@ -254,7 +254,7 @@ const Index = () => {
   const isInGame = activePanel === "game" && selectedRoomId;
   const isMyTurn = !room || room.mode !== "turn-based" || room.turn === userProfile.uid;
   const opponentInfo = room
-    ? Object.values(room.players).find((p) => p.uid !== userProfile.uid)
+    ? Object.values(room.players || {}).find((p) => p.uid !== userProfile.uid)
     : null;
 
   return (

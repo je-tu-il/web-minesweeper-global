@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { GameState, GridConfig, RoomMode } from "@/types";
-import { createEmptyGame, revealCell, cycleMark, generateDuelBoard } from "@/lib/gameEngine";
+import { createEmptyGame, revealCell, cycleMark, generateDuelBoard, generateSafeBoardSeeded } from "@/lib/gameEngine";
 
 interface GameStore {
   game: GameState;
@@ -113,38 +113,36 @@ export const useGameStore = create<GameStore>((set, get) => ({
       base = generateDuelBoard(config, seed);
     } else if (firstClick) {
       // Pour les autres modes, on regénère la grille en se basant sur le premier clic !
-      import("@/lib/gameEngine").then(({ generateSafeBoardSeeded }) => {
-        base = generateSafeBoardSeeded(base, firstClick.x, firstClick.y, seed);
-        
-        const revealedSet = new Set(revealedCells);
-        const flaggedSet = new Set(flaggedCells);
-        const questionSet = new Set(questionCells);
+      base = generateSafeBoardSeeded(base, firstClick.x, firstClick.y, seed);
+      
+      const revealedSet = new Set(revealedCells);
+      const flaggedSet = new Set(flaggedCells);
+      const questionSet = new Set(questionCells);
 
-        const cells = base.cells.map((cell) => ({
-          ...cell,
-          status: revealedSet.has(cell.id) ? ("revealed" as const) : cell.status,
-          mark: flaggedSet.has(cell.id) ? ("flag" as const) : questionSet.has(cell.id) ? ("question" as const) : cell.mark,
-        }));
+      const cells = base.cells.map((cell) => ({
+        ...cell,
+        status: revealedSet.has(cell.id) ? ("revealed" as const) : cell.status,
+        mark: flaggedSet.has(cell.id) ? ("flag" as const) : questionSet.has(cell.id) ? ("question" as const) : cell.mark,
+      }));
 
-        const safeCells = cells.filter((c) => !c.hasMine);
-        const won = safeCells.every((c) => c.status === "revealed");
-        const lost = !!explodedCellId;
-        const result = won ? "won" : lost ? "lost" : "playing";
+      const safeCells = cells.filter((c) => !c.hasMine);
+      const won = safeCells.every((c) => c.status === "revealed");
+      const lost = !!explodedCellId;
+      const result = won ? "won" : lost ? "lost" : "playing";
 
-        set({
-          game: {
-            ...base,
-            cells,
-            firstClickDone: revealedCells.length > 0,
-            result,
-            explodedCellId,
-            flagsUsed: flaggedCells.length > 0,
-            clickedRevealed: false,
-          },
-          mode,
-          timer: 0,
-          isTimerRunning: result === "playing",
-        });
+      set({
+        game: {
+          ...base,
+          cells,
+          firstClickDone: revealedCells.length > 0,
+          result,
+          explodedCellId,
+          flagsUsed: flaggedCells.length > 0,
+          clickedRevealed: false,
+        },
+        mode,
+        timer: 0,
+        isTimerRunning: result === "playing",
       });
       return;
     }
