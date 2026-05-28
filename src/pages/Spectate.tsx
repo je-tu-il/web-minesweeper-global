@@ -16,6 +16,7 @@ export default function Spectate() {
     if (!roomId) return;
     const unsub = subscribeRoom(roomId, (r) => {
       setRoom(r);
+      if (r) {
         const firstPlayer = Object.values(r.players)[0];
         // Restaurer l'état du jeu localement à chaque mise à jour (lecture seule)
         restoreFromSync(
