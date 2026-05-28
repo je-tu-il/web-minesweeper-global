@@ -1,6 +1,10 @@
 import type { Cell, CellMark, GameResult, GameState, GridConfig } from "@/types";
 
-const directions: Array<[number, number]> = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
+const directions: Array<[number, number]> = [
+  [-1, -1], [0, -1], [1, -1],
+  [-1, 0],           [1, 0],
+  [-1, 1],  [0, 1],  [1, 1],
+];
 
 const cellId = (x: number, y: number): string => `${x}:${y}`;
 
@@ -9,6 +13,18 @@ const neighbors = (x: number, y: number, config: GridConfig): string[] =>
     .map(([dx, dy]) => ({ x: x + dx, y: y + dy }))
     .filter((p) => p.x >= 0 && p.y >= 0 && p.x < config.width && p.y < config.height)
     .map((p) => cellId(p.x, p.y));
+
+/* ── Seeded PRNG (Linear Congruential Generator) ── */
+
+export function seededRandom(seed: number): () => number {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return (s >>> 0) / 0xffffffff;
+  };
+}
+
+/* ── Board creation ── */
 
 export const createEmptyGame = (config: GridConfig): GameState => ({
   config,
@@ -21,6 +37,7 @@ export const createEmptyGame = (config: GridConfig): GameState => ({
   }),
 });
 
+/** Place mines randomly, keeping a 3×3 safe zone around (safeX, safeY). */
 export const generateSafeBoard = (state: GameState, safeX: number, safeY: number): GameState => {
   const forbidden = new Set<string>([cellId(safeX, safeY), ...neighbors(safeX, safeY, state.config)]);
   const candidates = state.cells.map((cell) => cell.id).filter((id) => !forbidden.has(id));
@@ -38,6 +55,45 @@ export const generateSafeBoard = (state: GameState, safeX: number, safeY: number
 
   return { ...state, cells, firstClickDone: true };
 };
+
+/** Place mines using a deterministic seeded RNG — same seed = same board. */
+export const generateSafeBoardSeeded = (
+  state: GameState,
+  safeX: number,
+  safeY: number,
+  seed: number,
+): GameState => {
+  const rng = seededRandom(seed);
+  const forbidden = new Set<string>([cellId(safeX, safeY), ...neighbors(safeX, safeY, state.config)]);
+  const candidates = state.cells.map((cell) => cell.id).filter((id) => !forbidden.has(id));
+
+  // Fisher-Yates shuffle with seeded RNG
+  const shuffled = [...candidates];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  const mines = new Set<string>(shuffled.slice(0, Math.min(state.config.mines, shuffled.length)));
+
+  const cells = state.cells.map((cell) => {
+    const hasMine = mines.has(cell.id);
+    const adjacentMines = hasMine ? 0 : neighbors(cell.x, cell.y, state.config).filter((id) => mines.has(id)).length;
+    return { ...cell, hasMine, adjacentMines };
+  });
+
+  return { ...state, cells, firstClickDone: true };
+};
+
+/** Create a pre-generated board for duel mode — safe zone at board center. */
+export const generateDuelBoard = (config: GridConfig, seed: number): GameState => {
+  const state = createEmptyGame(config);
+  const centerX = Math.floor(config.width / 2);
+  const centerY = Math.floor(config.height / 2);
+  return generateSafeBoardSeeded(state, centerX, centerY, seed);
+};
+
+/* ── Reveal logic ── */
 
 const revealFrom = (state: GameState, id: string): GameState => {
   const byId = new Map(state.cells.map((cell) => [cell.id, { ...cell }]));
@@ -65,23 +121,39 @@ export const revealCell = (state: GameState, id: string, isTrap: boolean): GameS
   const target = state.cells.find((cell) => cell.id === id);
   if (!target || target.mark === "flag") return state;
 
+  // Shadowban trap: first click = instant death
   if (isTrap && !state.firstClickDone) {
-    const cells = state.cells.map((cell) => cell.id === id ? { ...cell, hasMine: true, adjacentMines: 0, status: "revealed" as const } : cell);
+    const cells = state.cells.map((cell) =>
+      cell.id === id
+        ? { ...cell, hasMine: true, adjacentMines: 0, status: "revealed" as const }
+        : cell,
+    );
     return { ...state, cells, firstClickDone: true, result: "lost", explodedCellId: id };
   }
 
   const generated = state.firstClickDone ? state : generateSafeBoard(state, target.x, target.y);
   const clicked = generated.cells.find((cell) => cell.id === id);
   if (clicked?.hasMine) {
-    return { ...generated, cells: generated.cells.map((cell) => cell.hasMine ? { ...cell, status: "revealed" as const } : cell), result: "lost", explodedCellId: id };
+    return {
+      ...generated,
+      cells: generated.cells.map((cell) => (cell.hasMine ? { ...cell, status: "revealed" as const } : cell)),
+      result: "lost",
+      explodedCellId: id,
+    };
   }
   return revealFrom(generated, id);
 };
 
 export const cycleMark = (state: GameState, id: string): GameState => {
   if (state.result !== "playing") return state;
-  const nextMark = (mark: CellMark): CellMark => mark === null ? "flag" : mark === "flag" ? "question" : null;
-  return { ...state, cells: state.cells.map((cell) => cell.id === id && cell.status === "hidden" ? { ...cell, mark: nextMark(cell.mark) } : cell) };
+  const nextMark = (mark: CellMark): CellMark => (mark === null ? "flag" : mark === "flag" ? "question" : null);
+  return {
+    ...state,
+    cells: state.cells.map((cell) =>
+      cell.id === id && cell.status === "hidden" ? { ...cell, mark: nextMark(cell.mark) } : cell,
+    ),
+  };
 };
 
-export const resultLabel = (result: GameResult): string => result === "playing" ? "En cours" : result === "won" ? "Victoire" : "Défaite";
+export const resultLabel = (result: GameResult): string =>
+  result === "playing" ? "En cours" : result === "won" ? "Victoire" : "Défaite";
