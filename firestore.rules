@@ -2,25 +2,32 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Profils utilisateurs
     match /users/{uid} {
       allow read: if request.auth != null;
-      // Autoriser l'utilisateur à modifier son propre profil
-      // OU autoriser n'importe qui à uniquement s'ajouter/se retirer de la liste "friends" d'un autre
       allow write: if request.auth != null && (
         request.auth.uid == uid ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends'])
+        (resource != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends']))
       );
     }
 
+    // Rooms de jeu
     match /rooms/{roomId} {
       allow read: if request.auth != null;
       allow create, update: if request.auth != null;
-      // Permettre la suppression d'une room
       allow delete: if request.auth != null;
     }
 
+    // Leaderboard
+    match /leaderboard/{docId} {
+      allow read: if true; // Tout le monde peut voir le leaderboard
+      allow write: if request.auth != null;
+    }
+
+    // Config admin (bannis etc.)
     match /config/{docId} {
       allow read: if request.auth != null;
+      // write réservé à l'admin via console
     }
   }
 }
