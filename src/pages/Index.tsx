@@ -14,6 +14,7 @@ import { Leaderboard } from "@/components/Leaderboard";
 import { MiniBoard } from "@/components/MiniBoard";
 import { AchievementToast } from "@/components/AchievementToast";
 import { Bomb, Swords, Clock, Crosshair, MessageCircle, LayoutGrid, Maximize2, Minimize2 } from "lucide-react";
+import { toast } from "sonner";
 import type { Room } from "@/types";
 
 const Index = () => {
@@ -98,6 +99,10 @@ const Index = () => {
           difficulty: diffKey,
           gridConfig: game.config,
           date: Date.now()
+        }).then(() => {
+          if (diffKey !== "custom") toast.success(`Score de ${timer}s ajouté au Leaderboard !`);
+        }).catch(() => {
+          toast.error("Erreur lors de la soumission du score.");
         });
       }
 
@@ -143,9 +148,11 @@ const Index = () => {
       // Turn-based: vérifier que c'est le tour du joueur
       if (room?.mode === "turn-based" && room.turn !== userProfile.uid) return;
 
-      if (!game.firstClickDone && room && !room.firstClick) {
-      updateRoom(selectedRoomId, { firstClick: { x: target.x, y: target.y } });
-    }
+      const targetCell = game.cells.find(c => c.id === cellId);
+
+      if (!game.firstClickDone && room && !room.firstClick && targetCell) {
+        updateRoom(selectedRoomId, { firstClick: { x: targetCell.x, y: targetCell.y } });
+      }
     
     const newGame = handleReveal(cellId);
       pushGameStateToFirestore(newGame);
@@ -364,12 +371,14 @@ const Index = () => {
                     <p className="mt-1 text-sm text-slate-500">Partagez le lien de votre room</p>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center gap-6 xl:flex-row xl:items-start xl:justify-center">
-                    <GameBoard
-                      onCellClick={onCellClick}
-                      onCellRightClick={onCellRightClick}
-                      disabled={!isMyTurn}
-                    />
+                  <div className="flex flex-col items-center gap-6 xl:flex-row xl:items-start xl:justify-center min-w-0 max-w-full">
+                    <div className="min-w-0 max-w-full">
+                      <GameBoard
+                        onCellClick={onCellClick}
+                        onCellRightClick={onCellRightClick}
+                        disabled={!isMyTurn}
+                      />
+                    </div>
                     
                     {/* Opponent MiniMap in Duel */}
                     {room?.mode === "duel" && opponentInfo && (

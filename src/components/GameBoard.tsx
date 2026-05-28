@@ -145,10 +145,10 @@ export function GameBoard({ onCellClick, onCellRightClick, disabled = false, isS
 
       {/* Grid — scroll horizontal sur grandes grilles */}
       <div className="relative overflow-x-auto pb-2">
-        {disabled && game.result === "playing" && (
+        {disabled && game.result === "playing" && !isSpectator && (
           <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-slate-950/20 backdrop-blur-[1px]">
             <div className="rounded-full bg-slate-900/80 px-4 py-2 text-sm font-bold text-white shadow-xl backdrop-blur">
-              {isSpectator ? "👀 Mode Spectateur" : "⏳ Tour de l'adversaire..."}
+              ⏳ Tour de l'adversaire...
             </div>
           </div>
         )}

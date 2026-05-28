@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Shield, UserX, Users, ArrowLeft, Plus, Trash2, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { getAllUsers, subscribeBannedUsernames, addBannedUsername, removeBannedUsername, resetUserStats, subscribeRooms, deleteRoom } from "@/lib/firestore";
 import type { UserProfile, Room } from "@/types";
 
@@ -49,12 +50,22 @@ const Admin = () => {
   const handleAddBan = async () => {
     const trimmed = newBan.trim();
     if (!trimmed) return;
-    await addBannedUsername(trimmed);
-    setNewBan("");
+    try {
+      await addBannedUsername(trimmed);
+      setNewBan("");
+      toast.success(`Pseudo banni : ${trimmed}`);
+    } catch (e) {
+      toast.error("Impossible d'ajouter ce ban (permissions insuffisantes ?)");
+    }
   };
 
   const handleRemoveBan = async (username: string) => {
-    await removeBannedUsername(username);
+    try {
+      await removeBannedUsername(username);
+      toast.success(`Ban retiré pour : ${username}`);
+    } catch (e) {
+      toast.error("Impossible de retirer ce ban.");
+    }
   };
 
   const handleResetStats = async (uid: string) => {
@@ -72,7 +83,12 @@ const Admin = () => {
 
   const handleAdminDeleteRoom = async (roomId: string) => {
     if (confirm("Forcer la suppression de cette partie ?")) {
-      await deleteRoom(roomId);
+      try {
+        await deleteRoom(roomId);
+        toast.success("Partie supprimée avec succès.");
+      } catch (e) {
+        toast.error("Erreur de suppression (permissions Firestore bloquées ?)");
+      }
     }
   };
 

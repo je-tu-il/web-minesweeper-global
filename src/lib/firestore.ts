@@ -11,11 +11,11 @@ import {
   arrayRemove,
   increment,
   query,
-  orderBy,
   where,
   limit,
 } from "firebase/firestore";
-import { firestore } from "./firebase";
+import { ref as rtdbRef, remove } from "firebase/database";
+import { firestore, rtdb } from "./firebase";
 import type { UserProfile, Room, RoomPlayer, LeaderboardEntry } from "@/types";
 
 /* ================================================================
@@ -172,6 +172,7 @@ export async function updateRoom(roomId: string, data: Record<string, unknown>):
 
 export async function deleteRoom(roomId: string): Promise<void> {
   await deleteDoc(doc(firestore, "rooms", roomId));
+  await remove(rtdbRef(rtdb, `liveRoom/${roomId}`));
 }
 
 /** Sync le game state dans la room (pour reprendre + spectate) */

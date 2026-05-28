@@ -5,10 +5,11 @@ import { getUserProfile, followUser, unfollowUser } from "@/lib/firestore";
 import { useUiStore } from "@/store/uiStore";
 import { ACHIEVEMENTS, TIER_COLORS, type UserProfile } from "@/types";
 import { User, Trophy, Flame, Swords, ArrowLeft, UserPlus, UserMinus, Settings } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Profile() {
   const { uid } = useParams();
-  const { userProfile: myProfile } = useAuth();
+  const { userProfile: myProfile, refreshProfile } = useAuth();
   const { setShowUsernameModal } = useUiStore();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,15 +47,26 @@ export default function Profile() {
 
   const handleFollow = async () => {
     if (!myProfile || isMe) return;
-    await followUser(myProfile.uid, profile.uid);
-    // Refresh localement pour l'UX
-    setProfile(prev => prev ? { ...prev, friends: [...(prev.friends || []), myProfile.uid] } : prev);
+    try {
+      await followUser(myProfile.uid, profile.uid);
+      setProfile(prev => prev ? { ...prev, friends: [...(prev.friends || []), myProfile.uid] } : prev);
+      await refreshProfile();
+      toast.success(`Vous suivez désormais ${profile.username}`);
+    } catch (e) {
+      toast.error("Impossible de suivre cet utilisateur.");
+    }
   };
 
   const handleUnfollow = async () => {
     if (!myProfile || isMe) return;
-    await unfollowUser(myProfile.uid, profile.uid);
-    setProfile(prev => prev ? { ...prev, friends: (prev.friends || []).filter(id => id !== myProfile.uid) } : prev);
+    try {
+      await unfollowUser(myProfile.uid, profile.uid);
+      setProfile(prev => prev ? { ...prev, friends: (prev.friends || []).filter(id => id !== myProfile.uid) } : prev);
+      await refreshProfile();
+      toast.success(`Vous ne suivez plus ${profile.username}`);
+    } catch (e) {
+      toast.error("Erreur lors du désabonnement.");
+    }
   };
 
   const isFollowing = myProfile?.following?.includes(profile.uid);
