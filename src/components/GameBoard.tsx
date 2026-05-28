@@ -1,7 +1,8 @@
 import { useGameStore } from "@/store/gameStore";
 import { resultLabel } from "@/lib/gameEngine";
 import { Flag, Timer, Zap, Trophy, Skull } from "lucide-react";
-import { useMemo } from "react";
+import React, { useMemo, useCallback } from "react";
+import type { Cell } from "@/types";
 
 interface GameBoardProps {
   onCellClick: (cellId: string) => void;
@@ -20,6 +21,73 @@ const NUMBER_COLORS: Record<number, string> = {
   7: "#37474f",
   8: "#78909c",
 };
+
+interface CellComponentProps {
+  cell: Cell;
+  cellSize: number;
+  isExploded: boolean;
+  disabled: boolean;
+  isGameOver: boolean;
+  onCellClick: (cellId: string) => void;
+  onCellRightClick: (cellId: string) => void;
+}
+
+const CellComponent = React.memo(({ cell, cellSize, isExploded, disabled, isGameOver, onCellClick, onCellRightClick }: CellComponentProps) => {
+  const isRevealed = cell.status === "revealed";
+  const isMine = cell.hasMine;
+  const num = cell.adjacentMines;
+
+  return (
+    <button
+      onClick={() => !disabled && onCellClick(cell.id)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        if (!disabled) onCellRightClick(cell.id);
+      }}
+      disabled={disabled || isGameOver}
+      style={{
+        width: cellSize,
+        height: cellSize,
+        fontSize: cellSize > 34 ? 16 : 13,
+        color: isRevealed && !isMine && num > 0 ? NUMBER_COLORS[num] : undefined,
+      }}
+      className={[
+        "relative select-none font-black transition-all duration-100",
+        // ── Case cachée : style classique 3D relevé ──
+        !isRevealed && [
+          "border-t-[2px] border-l-[2px] border-b-[2px] border-r-[2px]",
+          "border-t-[#8a8a8a] border-l-[#8a8a8a] border-b-[#3a3a3a] border-r-[#3a3a3a]",
+          "bg-[#5a5a5a]",
+          "hover:bg-[#6a6a6a] hover:scale-[1.08] hover:z-10 hover:shadow-[0_0_12px_rgba(34,211,238,0.15)]",
+          "active:border-t-[#3a3a3a] active:border-l-[#3a3a3a] active:border-b-[#8a8a8a] active:border-r-[#8a8a8a] active:bg-[#4a4a4a]",
+        ].join(" "),
+        // ── Case révélée : style creux ──
+        isRevealed && !isMine && "border border-[#2a2a2a] bg-[#3a3a3a]",
+        // ── Mine explosée ──
+        isExploded && "!bg-red-600 !border-red-700 shadow-lg shadow-red-600/50",
+        // ── Mine révélée (game over) ──
+        isRevealed && isMine && !isExploded && "border border-[#2a2a2a] bg-[#3a3a3a]",
+        // ── Disabled ──
+        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      aria-label={`Cellule ${cell.x},${cell.y}`}
+    >
+      {isRevealed ? (
+        isMine ? (
+          <span className="flex items-center justify-center text-base">✦</span>
+        ) : num > 0 ? (
+          <span className="flex items-center justify-center font-black">{num}</span>
+        ) : null
+      ) : cell.mark === "flag" ? (
+        <span className="flex items-center justify-center text-red-400">▶</span>
+      ) : cell.mark === "question" ? (
+        <span className="flex items-center justify-center text-amber-300 font-bold">?</span>
+      ) : null}
+    </button>
+  );
+});
 
 export function GameBoard({ onCellClick, onCellRightClick, disabled = false }: GameBoardProps) {
   const { game, timer } = useGameStore();
@@ -91,65 +159,18 @@ export function GameBoard({ onCellClick, onCellRightClick, disabled = false }: G
             width: "fit-content",
           }}
         >
-          {cells.map((cell) => {
-            const isExploded = explodedCellId === cell.id;
-            const isRevealed = cell.status === "revealed";
-            const isMine = cell.hasMine;
-            const num = cell.adjacentMines;
-
-            return (
-              <button
-                key={cell.id}
-                onClick={() => !disabled && onCellClick(cell.id)}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  if (!disabled) onCellRightClick(cell.id);
-                }}
-                disabled={disabled || result !== "playing"}
-                style={{
-                  width: cellSize,
-                  height: cellSize,
-                  fontSize: cellSize > 34 ? 16 : 13,
-                  color: isRevealed && !isMine && num > 0 ? NUMBER_COLORS[num] : undefined,
-                }}
-                className={[
-                  "relative select-none font-black transition-all duration-100",
-                  // ── Case cachée : style classique 3D relevé ──
-                  !isRevealed && [
-                    "border-t-[2px] border-l-[2px] border-b-[2px] border-r-[2px]",
-                    "border-t-[#8a8a8a] border-l-[#8a8a8a] border-b-[#3a3a3a] border-r-[#3a3a3a]",
-                    "bg-[#5a5a5a]",
-                    "hover:bg-[#6a6a6a] hover:scale-[1.08] hover:z-10 hover:shadow-[0_0_12px_rgba(34,211,238,0.15)]",
-                    "active:border-t-[#3a3a3a] active:border-l-[#3a3a3a] active:border-b-[#8a8a8a] active:border-r-[#8a8a8a] active:bg-[#4a4a4a]",
-                  ].join(" "),
-                  // ── Case révélée : style creux ──
-                  isRevealed && !isMine && "border border-[#2a2a2a] bg-[#3a3a3a]",
-                  // ── Mine explosée ──
-                  isExploded && "!bg-red-600 !border-red-700 shadow-lg shadow-red-600/50",
-                  // ── Mine révélée (game over) ──
-                  isRevealed && isMine && !isExploded && "border border-[#2a2a2a] bg-[#3a3a3a]",
-                  // ── Disabled ──
-                  disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                aria-label={`Cellule ${cell.x},${cell.y}`}
-              >
-                {/* Contenu de la cellule */}
-                {isRevealed ? (
-                  isMine ? (
-                    <span className="flex items-center justify-center text-base">✦</span>
-                  ) : num > 0 ? (
-                    <span className="flex items-center justify-center font-black">{num}</span>
-                  ) : null
-                ) : cell.mark === "flag" ? (
-                  <span className="flex items-center justify-center text-red-400">▶</span>
-                ) : cell.mark === "question" ? (
-                  <span className="flex items-center justify-center text-amber-300 font-bold">?</span>
-                ) : null}
-              </button>
-            );
-          })}
+          {cells.map((cell) => (
+            <CellComponent
+              key={cell.id}
+              cell={cell}
+              cellSize={cellSize}
+              isExploded={explodedCellId === cell.id}
+              disabled={disabled}
+              isGameOver={result !== "playing"}
+              onCellClick={onCellClick}
+              onCellRightClick={onCellRightClick}
+            />
+          ))}
         </div>
       </div>
     </section>

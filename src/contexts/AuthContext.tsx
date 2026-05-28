@@ -11,7 +11,7 @@ interface AuthContextValue {
   isBanned: boolean;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
-  updateUsername: (username: string) => Promise<void>;
+  updateProfile: (data: { username?: string; avatarUrl?: string }) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -48,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           stats: { totalWins: 0, totalLosses: 0 },
           achievements: [],
           friends: [],
+          following: [],
           createdAt: Date.now(),
         };
         await createOrUpdateProfile(firebaseUser.uid, newProfile);
@@ -73,12 +74,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsBanned(false);
   }
 
-  async function updateUsername(username: string) {
+  async function updateProfile(data: { username?: string; avatarUrl?: string }) {
     if (!user) return;
-    await createOrUpdateProfile(user.uid, { username });
-    const bannedList = await getBannedUsernames();
-    setIsBanned(bannedList.includes(username));
-    setUserProfile((prev) => (prev ? { ...prev, username } : null));
+    await createOrUpdateProfile(user.uid, data);
+    
+    if (data.username) {
+      const bannedList = await getBannedUsernames();
+      setIsBanned(bannedList.includes(data.username));
+    }
+    
+    setUserProfile((prev) => (prev ? { ...prev, ...data } : null));
   }
 
   async function refreshProfile() {
@@ -88,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, userProfile, isLoading, isBanned, signInWithGoogle, logout, updateUsername, refreshProfile }}
+      value={{ user, userProfile, isLoading, isBanned, signInWithGoogle, logout, updateProfile, refreshProfile }}
     >
       {children}
     </AuthContext.Provider>

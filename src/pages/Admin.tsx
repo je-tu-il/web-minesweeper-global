@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Shield, UserX, Users, ArrowLeft, Plus, Trash2, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
-import { getAllUsers, subscribeBannedUsernames, addBannedUsername, removeBannedUsername } from "@/lib/firestore";
+import { getAllUsers, subscribeBannedUsernames, addBannedUsername, removeBannedUsername, resetUserStats } from "@/lib/firestore";
 import type { UserProfile } from "@/types";
 
 const ADMIN_PASSWORD = ".1Azerty";
@@ -50,6 +50,19 @@ const Admin = () => {
 
   const handleRemoveBan = async (username: string) => {
     await removeBannedUsername(username);
+  };
+
+  const handleResetStats = async (uid: string) => {
+    if (confirm("Voulez-vous vraiment réinitialiser les statistiques de ce joueur ?")) {
+      await resetUserStats(uid);
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.uid === uid
+            ? { ...u, stats: { ...u.stats, totalWins: 0, totalLosses: 0, winStreak: 0, bestWinStreak: 0 } }
+            : u
+        )
+      );
+    }
   };
 
   // ── Password gate ──
@@ -191,11 +204,12 @@ const Admin = () => {
                 ) : (
                   <>
                     {/* Header */}
-                    <div className="grid grid-cols-5 gap-2 px-3 text-xs uppercase tracking-wider text-slate-600">
-                      <span className="col-span-2">Pseudo</span>
+                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 px-3 text-xs uppercase tracking-wider text-slate-600">
+                      <span>Pseudo</span>
                       <span className="text-center">W</span>
                       <span className="text-center">L</span>
                       <span className="text-center">Ratio</span>
+                      <span className="text-center"></span>
                     </div>
                     {users.map((u) => {
                       const total = u.stats.totalWins + u.stats.totalLosses;
@@ -204,11 +218,11 @@ const Admin = () => {
                       return (
                         <div
                           key={u.uid}
-                          className={`grid grid-cols-5 items-center gap-2 rounded-xl px-3 py-2.5 ${
+                          className={`grid grid-cols-[2fr_1fr_1fr_1fr_auto] items-center gap-2 rounded-xl px-3 py-2.5 ${
                             isBanned ? "bg-red-400/[0.06] border border-red-400/20" : "bg-white/[0.04]"
                           }`}
                         >
-                          <span className="col-span-2 flex items-center gap-2 text-sm text-white">
+                          <span className="flex items-center gap-2 text-sm text-white truncate">
                             {u.username || <span className="italic text-slate-500">Sans pseudo</span>}
                             {u.role === "admin" && (
                               <Shield className="h-3 w-3 text-amber-300" />
@@ -220,6 +234,13 @@ const Admin = () => {
                           <span className="text-center text-sm text-emerald-300">{u.stats.totalWins}</span>
                           <span className="text-center text-sm text-red-300">{u.stats.totalLosses}</span>
                           <span className="text-center text-sm text-amber-200">{rate}%</span>
+                          <button
+                            onClick={() => handleResetStats(u.uid)}
+                            className="rounded p-1 text-slate-500 hover:bg-white/10 hover:text-red-400 transition"
+                            title="Réinitialiser les stats"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
                       );
                     })}

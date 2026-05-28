@@ -4,7 +4,8 @@ import { useUiStore } from "@/store/uiStore";
 import { useGameStore } from "@/store/gameStore";
 import { subscribeRooms, joinRoom, deleteRoom, leaveRoom } from "@/lib/firestore";
 import type { Room } from "@/types";
-import { Plus, Users, Crosshair, Swords, Clock, Trash2, LogIn, LogOut } from "lucide-react";
+import { Plus, Users, Crosshair, Swords, Clock, Trash2, LogIn, LogOut, Eye } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const modeIcons: Record<string, typeof Crosshair> = {
   solo: Crosshair,
@@ -56,10 +57,10 @@ export function LobbyPanel() {
           room.gridConfig,
           room.seed,
           room.mode,
-          room.revealedCells || [],
-          room.flaggedCells || [],
-          room.questionCells || [],
-          room.explodedCellId
+          room.players[userProfile.uid]?.revealedCells || [],
+          room.players[userProfile.uid]?.flaggedCells || [],
+          room.players[userProfile.uid]?.questionCells || [],
+          room.players[userProfile.uid]?.explodedCellId
         );
       } else {
         // En attente
@@ -188,6 +189,15 @@ export function LobbyPanel() {
                       <LogOut className="h-3 w-3" />
                     </button>
                   ) : null}
+                  {room.status === "playing" && !isInRoom && (
+                    <Link
+                      to={`/spectate/${room.roomId}`}
+                      className="rounded-lg border border-slate-400/20 bg-slate-400/10 p-1.5 text-slate-300 transition hover:bg-slate-400/20"
+                      title="Spectateur"
+                    >
+                      <Eye className="h-3 w-3" />
+                    </Link>
+                  )}
                 </div>
               </div>
             );

@@ -48,6 +48,7 @@ export const TIER_COLORS: Record<AchievementTier, string> = {
 export interface UserProfile {
   uid: string;
   username: string;
+  avatarUrl?: string;
   role: UserRole;
   stats: {
     totalWins: number;
@@ -84,6 +85,10 @@ export interface RoomPlayer {
   score: number;
   revealedCount: number;
   result: GameResult;
+  revealedCells?: string[];
+  flaggedCells?: string[];
+  questionCells?: string[];
+  explodedCellId?: string;
 }
 
 export interface Room {
@@ -98,11 +103,6 @@ export interface Room {
   createdAt: number;
   maxPlayers: number;
   winner: string | null;
-  // Game state sync pour reprendre + spectate
-  revealedCells?: string[];
-  flaggedCells?: string[];
-  questionCells?: string[];
-  explodedCellId?: string;
 }
 
 /* ── Leaderboard ── */

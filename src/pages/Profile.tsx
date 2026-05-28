@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { getUserProfile, followUser, unfollowUser } from "@/lib/firestore";
+import { useUiStore } from "@/store/uiStore";
 import { ACHIEVEMENTS, TIER_COLORS, type UserProfile } from "@/types";
-import { User, Trophy, Flame, Swords, ArrowLeft, UserPlus, UserMinus } from "lucide-react";
+import { User, Trophy, Flame, Swords, ArrowLeft, UserPlus, UserMinus, Settings } from "lucide-react";
 
 export default function Profile() {
   const { uid } = useParams();
   const { userProfile: myProfile } = useAuth();
+  const { setShowUsernameModal } = useUiStore();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -73,9 +75,13 @@ export default function Profile() {
         {/* Header */}
         <div className="mb-8 flex flex-wrap items-end justify-between gap-6 rounded-[2rem] border border-white/10 bg-slate-950/70 p-8 backdrop-blur-xl">
           <div className="flex items-center gap-6">
-            <div className="grid h-24 w-24 place-items-center rounded-3xl bg-cyan-300/10 text-cyan-300">
-              <User className="h-12 w-12" />
-            </div>
+            {profile.avatarUrl ? (
+              <img src={profile.avatarUrl} alt={profile.username} className="h-24 w-24 rounded-3xl object-cover shadow-lg" />
+            ) : (
+              <div className="grid h-24 w-24 place-items-center rounded-3xl bg-cyan-300/10 text-cyan-300">
+                <User className="h-12 w-12" />
+              </div>
+            )}
             <div>
               <h1 className="text-4xl font-black text-white">{profile.username}</h1>
               <p className="mt-2 text-slate-400">
@@ -88,7 +94,11 @@ export default function Profile() {
             </div>
           </div>
 
-          {!isMe && myProfile && (
+          {isMe ? (
+            <button onClick={() => setShowUsernameModal(true)} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-5 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.08]">
+              <Settings className="h-4 w-4" /> Modifier
+            </button>
+          ) : myProfile && (
             isFollowing ? (
               <button onClick={handleUnfollow} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-5 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.08]">
                 <UserMinus className="h-4 w-4" /> Ne plus suivre

@@ -58,6 +58,16 @@ export async function updateBestWinStreak(uid: string, streak: number): Promise<
   await updateDoc(ref, { "stats.bestWinStreak": streak });
 }
 
+export async function resetUserStats(uid: string): Promise<void> {
+  const ref = doc(firestore, "users", uid);
+  await updateDoc(ref, {
+    "stats.totalWins": 0,
+    "stats.totalLosses": 0,
+    "stats.winStreak": 0,
+    "stats.bestWinStreak": 0,
+  });
+}
+
 export async function addAchievements(uid: string, achievementIds: string[]): Promise<void> {
   if (achievementIds.length === 0) return;
   const ref = doc(firestore, "users", uid);
@@ -167,14 +177,19 @@ export async function deleteRoom(roomId: string): Promise<void> {
 /** Sync le game state dans la room (pour reprendre + spectate) */
 export async function syncGameState(
   roomId: string,
+  uid: string,
   revealedCells: string[],
   flaggedCells: string[],
   questionCells: string[],
   explodedCellId?: string,
 ): Promise<void> {
   const ref = doc(firestore, "rooms", roomId);
-  const data: Record<string, unknown> = { revealedCells, flaggedCells, questionCells };
-  if (explodedCellId) data.explodedCellId = explodedCellId;
+  const data: Record<string, unknown> = {
+    [`players.${uid}.revealedCells`]: revealedCells,
+    [`players.${uid}.flaggedCells`]: flaggedCells,
+    [`players.${uid}.questionCells`]: questionCells,
+  };
+  if (explodedCellId) data[`players.${uid}.explodedCellId`] = explodedCellId;
   await updateDoc(ref, data);
 }
 

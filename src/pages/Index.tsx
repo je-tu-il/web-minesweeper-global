@@ -11,6 +11,8 @@ import { RoomChat } from "@/components/RoomChat";
 import { UsernameModal } from "@/components/UsernameModal";
 import { CreateRoomModal } from "@/components/CreateRoomModal";
 import { PlayerStats } from "@/components/PlayerStats";
+import { Leaderboard } from "@/components/Leaderboard";
+import { MiniBoard } from "@/components/MiniBoard";
 import { AchievementToast } from "@/components/AchievementToast";
 import { Bomb, Swords, Clock, Crosshair, MessageCircle, LayoutGrid } from "lucide-react";
 import type { Room } from "@/types";
@@ -126,11 +128,11 @@ const Index = () => {
 
   // Helper pour sync Firestore
   const pushGameStateToFirestore = (newGame: typeof game) => {
-    if (!selectedRoomId) return;
+    if (!selectedRoomId || !userProfile) return;
     const revealed = newGame.cells.filter(c => c.status === "revealed").map(c => c.id);
     const flagged = newGame.cells.filter(c => c.mark === "flag").map(c => c.id);
     const question = newGame.cells.filter(c => c.mark === "question").map(c => c.id);
-    syncGameState(selectedRoomId, revealed, flagged, question, newGame.explodedCellId);
+    syncGameState(selectedRoomId, userProfile.uid, revealed, flagged, question, newGame.explodedCellId);
   };
 
   const onCellClick = useCallback(
@@ -251,7 +253,9 @@ const Index = () => {
 
       <div className="relative mx-auto max-w-7xl px-4 py-4 sm:px-6">
         <AuthBar />
-        <AchievementToast achievementIds={newAchievements} onDone={() => setNewAchievements([])} />
+        {newAchievements.length > 0 && (
+          <AchievementToast achievementIds={newAchievements} onDone={() => setNewAchievements([])} />
+        )}
 
         {/* Modals */}
         {showUsernameModal && <UsernameModal />}
@@ -284,6 +288,7 @@ const Index = () => {
           <aside className={`space-y-4 ${activePanel !== "lobby" ? "hidden lg:block" : ""}`}>
             <LobbyPanel />
             <PlayerStats profile={userProfile} />
+            <Leaderboard />
           </aside>
 
           {/* Center: Game */}
@@ -345,11 +350,32 @@ const Index = () => {
                     <p className="mt-1 text-sm text-slate-500">Partagez le lien de votre room</p>
                   </div>
                 ) : (
-                  <GameBoard
-                    onCellClick={onCellClick}
-                    onCellRightClick={onCellRightClick}
-                    disabled={!isMyTurn}
-                  />
+                  <div className="flex flex-col items-center gap-6 xl:flex-row xl:items-start xl:justify-center">
+                    <GameBoard
+                      onCellClick={onCellClick}
+                      onCellRightClick={onCellRightClick}
+                      disabled={!isMyTurn}
+                    />
+                    
+                    {/* Opponent MiniMap in Duel */}
+                    {room?.mode === "duel" && opponentInfo && (
+                      <div className="flex flex-col items-center gap-3 rounded-[2rem] border border-white/10 bg-slate-950/40 p-5 backdrop-blur-xl">
+                        <div className="flex items-center gap-2">
+                          <span className="relative flex h-3 w-3">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500"></span>
+                          </span>
+                          <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Progression Adverse</span>
+                        </div>
+                        <MiniBoard
+                          config={room.gridConfig}
+                          revealedCells={opponentInfo.revealedCells || []}
+                          flaggedCells={opponentInfo.flaggedCells || []}
+                          explodedCellId={opponentInfo.explodedCellId}
+                        />
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* Game over actions */}

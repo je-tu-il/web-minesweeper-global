@@ -149,35 +149,32 @@ export function CreateRoomModal() {
             </div>
             <div>
               <label className="flex justify-between text-xs font-semibold text-slate-400 mb-1">
-                <span>Largeur</span>
-                <span className="text-white">{customWidth}</span>
+                <span>Largeur (5-50)</span>
               </label>
               <input 
-                type="range" min="5" max="50" value={customWidth} 
-                onChange={(e) => setCustomWidth(parseInt(e.target.value))}
-                className="w-full accent-cyan-300"
+                type="number" min="5" max="50" value={customWidth} 
+                onChange={(e) => setCustomWidth(Math.min(50, Math.max(5, parseInt(e.target.value) || 5)))}
+                className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white outline-none focus:border-cyan-300/50 focus:ring-1 focus:ring-cyan-300/50"
               />
             </div>
             <div>
               <label className="flex justify-between text-xs font-semibold text-slate-400 mb-1">
-                <span>Hauteur</span>
-                <span className="text-white">{customHeight}</span>
+                <span>Hauteur (5-50)</span>
               </label>
               <input 
-                type="range" min="5" max="50" value={customHeight} 
-                onChange={(e) => setCustomHeight(parseInt(e.target.value))}
-                className="w-full accent-cyan-300"
+                type="number" min="5" max="50" value={customHeight} 
+                onChange={(e) => setCustomHeight(Math.min(50, Math.max(5, parseInt(e.target.value) || 5)))}
+                className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white outline-none focus:border-cyan-300/50 focus:ring-1 focus:ring-cyan-300/50"
               />
             </div>
             <div>
               <label className="flex justify-between text-xs font-semibold text-slate-400 mb-1">
-                <span>Mines</span>
-                <span className="text-white">{Math.min(customMines, Math.max(1, customWidth * customHeight - 9))}</span>
+                <span>Mines (1-{Math.max(1, customWidth * customHeight - 9)})</span>
               </label>
               <input 
-                type="range" min="1" max={Math.max(1, customWidth * customHeight - 9)} value={customMines} 
-                onChange={(e) => setCustomMines(parseInt(e.target.value))}
-                className="w-full accent-red-400"
+                type="number" min="1" max={Math.max(1, customWidth * customHeight - 9)} value={customMines} 
+                onChange={(e) => setCustomMines(Math.min(Math.max(1, customWidth * customHeight - 9), Math.max(1, parseInt(e.target.value) || 1)))}
+                className="w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-white outline-none focus:border-red-400/50 focus:ring-1 focus:ring-red-400/50"
               />
             </div>
           </div>

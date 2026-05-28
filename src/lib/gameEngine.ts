@@ -123,9 +123,32 @@ export const revealCell = (state: GameState, id: string, isTrap: boolean): GameS
   const target = state.cells.find((cell) => cell.id === id);
   if (!target || target.mark === "flag") return state;
 
-  // Succès Louis : clic sur case déjà révélée
+  // Clic sur case déjà révélée (Chord / Succès Louis)
   if (target.status === "revealed") {
-    return { ...state, clickedRevealed: true };
+    let nextState = { ...state, clickedRevealed: true };
+    if (target.adjacentMines > 0) {
+      const neighborIds = neighbors(target.x, target.y, state.config);
+      const neighborCells = nextState.cells.filter(c => neighborIds.includes(c.id));
+      const flagCount = neighborCells.filter(c => c.mark === "flag").length;
+      
+      if (flagCount === target.adjacentMines) {
+        const toReveal = neighborCells.filter(c => c.status === "hidden" && c.mark !== "flag");
+        for (const cellToReveal of toReveal) {
+          if (nextState.result !== "playing") break;
+          if (cellToReveal.hasMine) {
+            nextState = {
+              ...nextState,
+              cells: nextState.cells.map((c) => (c.hasMine ? { ...c, status: "revealed" as const } : c)),
+              result: "lost",
+              explodedCellId: cellToReveal.id,
+            };
+          } else {
+            nextState = revealFrom(nextState, cellToReveal.id);
+          }
+        }
+      }
+    }
+    return nextState;
   }
 
   // Shadowban trap: first click = instant death
