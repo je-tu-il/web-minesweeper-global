@@ -147,7 +147,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         game: {
           ...base,
           cells,
-          firstClickDone: revealedCells.length > 0,
+          firstClickDone: true, // If we are restoring with a firstClick, it's done!
           result,
           explodedCellId,
           flagsUsed: flaggedCells.length > 0,

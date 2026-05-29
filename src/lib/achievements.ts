@@ -25,6 +25,15 @@ export function checkAchievements(
     unlock("click_revealed");
   }
 
+  // ── Malchanceux (Perdre 2 parties de suite) ──
+  if (!won) {
+    const history = profile.history || [];
+    const lastGame = history.length > 0 ? history[0] : null; // Because history is unshifted (newest first)
+    if (lastGame && lastGame.result === "lost") {
+      unlock("boom_chain");
+    }
+  }
+
   // Si pas gagné, on ne check que les succès non-victoire
   if (!won) return newAchievements;
 

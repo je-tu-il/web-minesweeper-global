@@ -54,6 +54,21 @@ const Index = () => {
 
       if (!room || !userProfile) return;
 
+      const currentGameState = useGameStore.getState().game;
+
+      // Detect new game started by someone else
+      if (room.status === "playing" && currentGameState.result !== "playing" && room.seed !== currentGameState.seed) {
+         if (room.mode === "coop") {
+           useGameStore.getState().initCoopGame(room.gridConfig, room.seed, isBanned);
+         } else if (room.mode === "duel") {
+           initDuelGame(room.gridConfig, room.seed, isBanned);
+         } else if (room.mode === "turn-based") {
+           initTurnBasedGame(room.gridConfig, isBanned);
+         }
+         // Wait for the next tick to evaluate with the new game state
+         return;
+      }
+
       // Cross-victory / End Game sync in Duel & Coop
       const currentGame = useGameStore.getState().game;
       if (room.mode !== "solo" && room.status === "finished" && currentGame.result === "playing") {
@@ -92,15 +107,17 @@ const Index = () => {
       }
 
       // Restore personal game state if reconnecting
-      const currentGameState = useGameStore.getState().game;
+      // (Using currentGameState declared at the top of the subscription)
       if ((room.status === "playing" || room.status === "finished") && !currentGameState.firstClickDone) {
         const p = room.players[userProfile.uid];
-        if (p?.revealedCells && p.revealedCells.length > 0) {
+        const isSharedBoard = room.mode === "turn-based" || room.mode === "coop";
+        
+        if ((p?.revealedCells && p.revealedCells.length > 0) || (isSharedBoard && room.firstClick)) {
           useGameStore.getState().restoreFromSync(
             room.gridConfig,
             room.seed,
             room.mode,
-            p.revealedCells,
+            p?.revealedCells || [],
             p.flaggedCells || [],
             p.questionCells || [],
             p.explodedCellId,
@@ -612,12 +629,7 @@ const Index = () => {
                   </div>
                 )}
                 
-                {/* Chat en dessous de la grille */}
-                {!isFocusMode && (
-                  <div className="mt-6">
-                    <RoomChat roomId={selectedRoomId!} />
-                  </div>
-                )}
+
               </div>
             )}
           </div>

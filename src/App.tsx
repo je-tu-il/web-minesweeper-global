@@ -11,6 +11,7 @@ import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
 import Spectate from "./pages/Spectate";
 import NotFound from "./pages/NotFound";
+import Community from "./pages/Community";
 import { UsernameModal } from "@/components/UsernameModal";
 import { PrivateChat } from "@/components/PrivateChat";
 
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/profile" element={<Profile />} />
             <Route path="/profile/:uid" element={<Profile />} />
             <Route path="/spectate/:roomId" element={<Spectate />} />
+            <Route path="/community" element={<Community />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

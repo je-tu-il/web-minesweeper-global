@@ -147,13 +147,11 @@ function FriendSuggestionRow({ uid }: { uid: string }) {
 export function ChatPanel({ roomId }: ChatPanelProps) {
   const { userProfile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"global" | "room">(roomId ? "room" : "global");
-
-  // Sync tab when roomId changes
-  useEffect(() => {
-    if (roomId) setActiveTab("room");
-    else setActiveTab("global");
-  }, [roomId]);
+  // Sync tab when roomId changes (No longer needed since tabs are removed)
+  // useEffect(() => {
+  //   if (roomId) setActiveTab("room");
+  //   else setActiveTab("global");
+  // }, [roomId]);
 
   const following = userProfile?.following ?? [];
 
@@ -201,48 +199,33 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-white/[0.06]">
-          <button
-            onClick={() => setActiveTab("global")}
-            className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs font-semibold uppercase tracking-wider transition ${
-              activeTab === "global"
-                ? "border-b-2 border-cyan-400 text-cyan-200"
-                : "text-slate-500 hover:text-slate-300"
-            }`}
-          >
-            <Globe className="h-3.5 w-3.5" />
-            Global
-          </button>
-          <button
-            onClick={() => setActiveTab("room")}
-            disabled={!roomId}
-            className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs font-semibold uppercase tracking-wider transition ${
-              activeTab === "room"
-                ? "border-b-2 border-amber-400 text-amber-200"
-                : roomId
-                ? "text-slate-500 hover:text-slate-300"
-                : "cursor-not-allowed text-slate-700"
-            }`}
-          >
-            <Hash className="h-3.5 w-3.5" />
-            Room
-          </button>
-        </div>
-
-        {/* Chat body */}
+        {/* Chat body (stacked) */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          {activeTab === "global" ? (
+          
+          {/* Section: Chat Global */}
+          <div className="flex flex-1 flex-col overflow-hidden border-b border-white/[0.06]">
+            <div className="bg-slate-900/50 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-cyan-400">
+              Chat Global
+            </div>
             <GlobalChatInline />
-          ) : roomId ? (
-            <div className="flex-1 overflow-y-auto">
-              <RoomChat roomId={roomId} />
+          </div>
+
+          {/* Section: Chat de Room */}
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="bg-slate-900/50 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-amber-400">
+              Chat de Room
             </div>
-          ) : (
-            <div className="flex flex-1 items-center justify-center text-sm text-slate-600">
-              Rejoignez une room pour voir le chat
-            </div>
-          )}
+            {roomId ? (
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <RoomChat roomId={roomId} />
+              </div>
+            ) : (
+              <div className="flex flex-1 items-center justify-center text-xs text-slate-600 px-4 text-center">
+                Rejoignez une partie pour discuter avec les autres joueurs
+              </div>
+            )}
+          </div>
+
         </div>
 
         {/* Friend suggestions */}
