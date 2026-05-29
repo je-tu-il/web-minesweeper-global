@@ -12,6 +12,7 @@ interface GameStore {
   initSoloGame: (config: GridConfig, isTrap?: boolean) => void;
   initDuelGame: (config: GridConfig, seed: number, isTrap?: boolean) => void;
   initTurnBasedGame: (config: GridConfig, isTrap?: boolean) => void;
+  initCoopGame: (config: GridConfig, seed: number, isTrap?: boolean) => void;
   handleReveal: (cellId: string) => GameState;
   handleFlag: (cellId: string) => GameState;
   setGame: (game: GameState) => void;
@@ -63,6 +64,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       game: { ...createEmptyGame(config), seed: Math.floor(Math.random() * 1000000) },
       mode: "turn-based",
+      isTrap,
+      timer: 0,
+      isTimerRunning: true,
+    });
+  },
+
+  initCoopGame: (config, seed, isTrap = false) => {
+    set({
+      game: { ...createEmptyGame(config), seed },
+      mode: "coop",
       isTrap,
       timer: 0,
       isTimerRunning: true,

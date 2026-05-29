@@ -1,6 +1,6 @@
 export type UserRole = "user" | "admin";
 export type RoomStatus = "waiting" | "playing" | "finished";
-export type RoomMode = "solo" | "duel" | "turn-based";
+export type RoomMode = "solo" | "duel" | "turn-based" | "coop";
 export type CellMark = "flag" | "question" | null;
 export type CellStatus = "hidden" | "revealed";
 export type GameResult = "playing" | "won" | "lost";

@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Bomb, LogOut, Shield } from "lucide-react";
+import { Bomb, LogOut, Shield, Users } from "lucide-react";
 import { Link } from "react-router-dom";
+import { CommunityModal } from "@/components/CommunityModal";
 
 export function AuthBar() {
   const { user, userProfile, isLoading, signInWithGoogle, logout } = useAuth();
+  const [showCommunity, setShowCommunity] = useState(false);
 
   if (isLoading) {
     return (
@@ -60,6 +63,14 @@ export function AuthBar() {
           <span className="text-red-300">{totalLosses}L</span>
         </div>
 
+        <button
+          onClick={() => setShowCommunity(true)}
+          className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-2 text-cyan-200 transition hover:bg-cyan-300/20"
+          title="Communauté"
+        >
+          <Users className="h-4 w-4" />
+        </button>
+
         {userProfile.role === "admin" && (
           <Link
             to="/admin"
@@ -89,6 +100,8 @@ export function AuthBar() {
           <LogOut className="h-4 w-4" />
         </button>
       </div>
+
+      <CommunityModal open={showCommunity} onClose={() => setShowCommunity(false)} />
     </header>
   );
 }

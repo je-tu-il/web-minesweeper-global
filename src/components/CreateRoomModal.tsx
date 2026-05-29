@@ -4,12 +4,13 @@ import { useUiStore } from "@/store/uiStore";
 import { useGameStore } from "@/store/gameStore";
 import { createRoom, joinRoom } from "@/lib/firestore";
 import { GRID_PRESETS, type RoomMode, type GridConfig } from "@/types";
-import { Crosshair, Swords, Clock, X, Settings2, ShieldCheck, HelpCircle } from "lucide-react";
+import { Crosshair, Swords, Clock, X, Settings2, ShieldCheck, HelpCircle, Users } from "lucide-react";
 
 const modes: { value: RoomMode; label: string; desc: string; icon: typeof Crosshair }[] = [
   { value: "solo", label: "Solo", desc: "Seul contre le chronomètre", icon: Crosshair },
   { value: "duel", label: "Duel", desc: "Course contre un adversaire", icon: Swords },
   { value: "turn-based", label: "Tour par tour", desc: "Un clic chacun à tour de rôle", icon: Clock },
+  { value: "coop", label: "Co-op", desc: "Déminer ensemble sur la même grille", icon: Users },
 ];
 
 const difficulties = Object.entries(GRID_PRESETS).map(([key, value]) => ({
@@ -84,6 +85,8 @@ export function CreateRoomModal() {
         initSoloGame(config, trap);
       } else if (selectedMode === "duel") {
         initDuelGame(config, seed, trap);
+      } else if (selectedMode === "coop") {
+        useGameStore.getState().initCoopGame(config, seed, trap);
       } else {
         initTurnBasedGame(config, trap);
       }

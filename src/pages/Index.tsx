@@ -14,6 +14,7 @@ import { PlayerStats } from "@/components/PlayerStats";
 import { Leaderboard } from "@/components/Leaderboard";
 import { MiniBoard } from "@/components/MiniBoard";
 import { AchievementToast } from "@/components/AchievementToast";
+import { ChatPanel } from "@/components/ChatPanel";
 import { Bomb, Swords, Clock, Crosshair, MessageCircle, LayoutGrid, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Flag } from "lucide-react";
 import { toast } from "sonner";
 import type { Room } from "@/types";
@@ -53,10 +54,12 @@ const Index = () => {
 
       if (!room || !userProfile) return;
 
-      // Cross-victory / End Game sync in Duel
+      // Cross-victory / End Game sync in Duel & Coop
       const currentGame = useGameStore.getState().game;
       if (room.mode !== "solo" && room.status === "finished" && currentGame.result === "playing") {
-        const wonByMe = room.winner === userProfile.uid;
+        const isCoop = room.mode === "coop";
+        const wonByMe = isCoop ? (room.winner !== null && room.winner !== undefined) : (room.winner === userProfile.uid);
+        
         useGameStore.setState({
           game: {
             ...currentGame,
@@ -65,7 +68,14 @@ const Index = () => {
           },
           isTimerRunning: false
         });
-        toast.info(wonByMe ? "Félicitations, vous avez gagné le duel !" : "L'adversaire a terminé en premier ! Partie perdue.");
+
+        let msg = wonByMe ? "Félicitations, vous avez gagné !" : "Défaite !";
+        if (room.mode === "duel") {
+           msg = wonByMe ? "Félicitations, vous avez gagné le duel !" : "L'adversaire a terminé en premier ! Partie perdue.";
+        } else if (room.mode === "coop") {
+           msg = wonByMe ? "Félicitations, vous avez déminé la grille ensemble !" : "Boum ! Quelqu'un a cliqué sur une mine !";
+        }
+        toast.info(msg);
       }
 
       const playerCount = Object.keys(room.players || {}).length;
@@ -101,7 +111,7 @@ const Index = () => {
 
       // Sync opponent's state to local board (if shared board)
       if (room.status === "playing" || room.status === "finished") {
-        const isSharedBoard = room.mode === "turn-based" || (room.mode === "duel" && room.duelMode !== "separate");
+        const isSharedBoard = room.mode === "turn-based" || room.mode === "coop";
         if (isSharedBoard) {
           const myUid = userProfile.uid;
           const otherPlayers = Object.values(room.players).filter(p => p.uid !== myUid);
@@ -187,13 +197,17 @@ const Index = () => {
       let winnerUid = won ? userProfile.uid : null;
       let statusToSet = (won || isSolo) ? "finished" : room?.status || "playing";
 
-      if (isDuel && !won) {
+      if (room?.mode === "duel" && !won) {
         // If I lost in a duel, the other player is the winner
         const otherPlayer = Object.keys(room.players).find(uid => uid !== userProfile.uid);
         if (otherPlayer) {
           winnerUid = otherPlayer;
           statusToSet = "finished";
         }
+      } else if (room?.mode === "coop" && !won) {
+        // If I lost in coop, everyone loses
+        winnerUid = null;
+        statusToSet = "finished";
       }
 
       const updates: Record<string, unknown> = {
@@ -288,21 +302,37 @@ const Index = () => {
     if (!room) return;
     statsUpdatedRef.current = false;
 
+    const newSeed = room.seed + 1;
+
     // Reset room status for multiplayer replays
     if (selectedRoomId) {
       import("@/lib/firestore").then(({ updateRoom }) => {
-        updateRoom(selectedRoomId, {
+        const updates: Record<string, any> = {
           status: "playing",
           winner: null,
-          firstClick: null
-        }).catch(console.error);
+          firstClick: null,
+          seed: newSeed,
+        };
+        
+        Object.keys(room.players || {}).forEach(uid => {
+          updates[`players.${uid}.result`] = "playing";
+          updates[`players.${uid}.revealedCount`] = 0;
+          updates[`players.${uid}.revealedCells`] = [];
+          updates[`players.${uid}.flaggedCells`] = [];
+          updates[`players.${uid}.questionCells`] = [];
+          updates[`players.${uid}.explodedCellId`] = null;
+        });
+
+        updateRoom(selectedRoomId, updates).catch(console.error);
       });
     }
 
     if (room.mode === "solo") {
       initSoloGame(room.gridConfig, isBanned);
     } else if (room.mode === "duel") {
-      initDuelGame(room.gridConfig, room.seed + 1, isBanned);
+      initDuelGame(room.gridConfig, newSeed, isBanned);
+    } else if (room.mode === "coop") {
+      useGameStore.getState().initCoopGame(room.gridConfig, newSeed, isBanned);
     } else {
       initTurnBasedGame(room.gridConfig, isBanned);
     }
@@ -597,6 +627,9 @@ const Index = () => {
           This site is powered by Netlify
         </div>
       </div>
+
+      {/* ChatPanel – sliding side panel */}
+      <ChatPanel roomId={selectedRoomId} />
     </main>
   );
 };
