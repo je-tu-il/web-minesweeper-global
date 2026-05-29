@@ -82,8 +82,8 @@ const Index = () => {
       }
 
       // Restore personal game state if reconnecting
-      const currentGame = useGameStore.getState().game;
-      if ((room.status === "playing" || room.status === "finished") && !currentGame.firstClickDone) {
+      const currentGameState = useGameStore.getState().game;
+      if ((room.status === "playing" || room.status === "finished") && !currentGameState.firstClickDone) {
         const p = room.players[userProfile.uid];
         if (p?.revealedCells && p.revealedCells.length > 0) {
           useGameStore.getState().restoreFromSync(
