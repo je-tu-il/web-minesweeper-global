@@ -144,10 +144,10 @@ export default function Profile() {
             <div>
               <h1 className="text-4xl font-black text-white flex items-center gap-3">
                 {profile.username}
-                {(profile.role === "admin" || profile.email === "jules.eymond0509@gmail.com") && (
-                  <Link to="/admin" title="Panel Administrateur" className="grid h-8 w-8 place-items-center rounded-xl bg-amber-400/20 text-amber-300 hover:bg-amber-400/30 transition">
+                {profile.role === "admin" && (
+                  <div title="Administrateur" className="grid h-8 w-8 place-items-center rounded-xl bg-amber-400/20 text-amber-300">
                     <Shield className="h-4 w-4" />
-                  </Link>
+                  </div>
                 )}
               </h1>
               <p className="mt-2 text-slate-400">
