@@ -32,6 +32,11 @@ export function checkAchievements(
     if (lastGame && lastGame.result === "lost") {
       unlock("boom_chain");
     }
+
+    // ── Kamikaze (Perdre en moins de 3s) ──
+    if (timer <= 3) {
+      unlock("kamikaze");
+    }
   }
 
   // Si pas gagné, on ne check que les succès non-victoire
@@ -81,6 +86,21 @@ export function checkAchievements(
   // ── Sweep ──
   const revealedCount = gameState.cells.filter(c => c.status === "revealed" && !c.hasMine).length;
   if (revealedCount >= 50) unlock("sweep");
+
+  // ── Total Wins (Marathon & Centurion) ──
+  const totalWins = (profile.stats.totalWins || 0) + 1;
+  if (totalWins >= 50) unlock("win_total_50");
+  if (totalWins >= 100) unlock("win_total_100");
+
+  // ── Date/Time based (Démineur du Dimanche, Insomniaque) ──
+  const now = new Date();
+  if (now.getDay() === 0) { // 0 = Dimanche
+    unlock("sunday_player");
+  }
+  const hours = now.getHours();
+  if (hours >= 2 && hours < 5) { // Entre 2h et 5h du matin
+    unlock("insomniac");
+  }
 
   // Temps de jeu
   const playTime = (profile.stats.playTime || 0) + timer;

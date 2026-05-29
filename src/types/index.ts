@@ -40,6 +40,9 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: "win_streak_3", name: "Série", description: "3 victoires d'affilée", tier: "bronze", icon: "🔥" },
   { id: "win_streak_5", name: "Invaincu", description: "5 victoires d'affilée", tier: "silver", icon: "🎖️" },
   { id: "win_streak_10", name: "Inarrêtable", description: "10 victoires d'affilée", tier: "gold", icon: "💪" },
+  // Total Wins
+  { id: "win_total_50", name: "Marathon", description: "Atteindre 50 victoires au total", tier: "silver", icon: "🏃" },
+  { id: "win_total_100", name: "Centurion", description: "Atteindre 100 victoires au total", tier: "gold", icon: "💯" },
   // Social
   { id: "first_duel_win", name: "Rival", description: "Gagner un duel", tier: "silver", icon: "⚔️" },
   { id: "first_spectate", name: "Voyeur", description: "Observer une partie", tier: "bronze", icon: "👀" },
@@ -50,6 +53,9 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   // Fun & Tryhard
   { id: "boom_chain", name: "Malchanceux", description: "Perdre 2 parties de suite", tier: "bronze", icon: "🌧️" },
   { id: "sweep", name: "Balayage", description: "Dévoiler plus de 50 cases", tier: "silver", icon: "🧹" },
+  { id: "sunday_player", name: "Démineur du Dimanche", description: "Jouer une partie un dimanche", tier: "bronze", icon: "📅" },
+  { id: "insomniac", name: "Insomniaque", description: "Jouer une partie entre 2h et 5h du matin", tier: "silver", icon: "🦉" },
+  { id: "kamikaze", name: "Kamikaze", description: "Perdre une partie en moins de 3 secondes", tier: "bronze", icon: "💥" },
   // Mystères
   { id: "mystere_egirl", name: "E-Girl", description: "Dire uwu dans le chat global", tier: "silver", icon: "🌸", isHidden: true },
   { id: "mystere_boom_first_click", name: "Pas de chance", description: "Perdre sur le tout premier clic (impossible normalement)", tier: "bronze", icon: "💣", isHidden: true },
