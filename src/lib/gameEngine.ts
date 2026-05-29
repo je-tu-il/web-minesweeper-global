@@ -161,7 +161,12 @@ export const revealCell = (state: GameState, id: string, isTrap: boolean): GameS
     return { ...state, cells, firstClickDone: true, result: "lost", explodedCellId: id };
   }
 
-  const generated = state.firstClickDone ? state : generateSafeBoard(state, target.x, target.y);
+  const generated = state.firstClickDone 
+    ? state 
+    : (state.seed !== undefined 
+        ? generateSafeBoardSeeded(state, target.x, target.y, state.seed)
+        : generateSafeBoard(state, target.x, target.y));
+  
   const clicked = generated.cells.find((cell) => cell.id === id);
   if (clicked?.hasMine) {
     return {

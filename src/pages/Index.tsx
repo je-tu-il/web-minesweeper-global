@@ -81,6 +81,24 @@ const Index = () => {
         }
       }
 
+      // Restore personal game state if reconnecting
+      const currentGame = useGameStore.getState().game;
+      if ((room.status === "playing" || room.status === "finished") && !currentGame.firstClickDone) {
+        const p = room.players[userProfile.uid];
+        if (p?.revealedCells && p.revealedCells.length > 0) {
+          useGameStore.getState().restoreFromSync(
+            room.gridConfig,
+            room.seed,
+            room.mode,
+            p.revealedCells,
+            p.flaggedCells || [],
+            p.questionCells || [],
+            p.explodedCellId,
+            room.firstClick
+          );
+        }
+      }
+
       // Sync opponent's state to local board (if shared board)
       if (room.status === "playing" || room.status === "finished") {
         const isSharedBoard = room.mode === "turn-based" || (room.mode === "duel" && room.duelMode !== "separate");
@@ -145,8 +163,7 @@ const Index = () => {
         if (game.config.width === 9 && game.config.height === 9 && game.config.mines === 10) diffKey = "beginner";
         else if (game.config.width === 16 && game.config.height === 16 && game.config.mines === 40) diffKey = "intermediate";
         else if (game.config.width === 30 && game.config.height === 16 && game.config.mines === 99) diffKey = "expert";
-        
-        if (diffKey !== "custom") {
+        if (diffKey !== "custom" && mockRoomForHistory.mode !== "duel") {
           submitScore({
             uid: userProfile.uid,
             username: userProfile.username,
@@ -524,7 +541,7 @@ const Index = () => {
                             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
                             <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500"></span>
                           </span>
-                          <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Progression Adverse</span>
+                          <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Progression de {opponentInfo.username}</span>
                         </div>
                         <MiniBoard
                           config={room.gridConfig}

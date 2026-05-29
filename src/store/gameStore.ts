@@ -41,7 +41,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   initSoloGame: (config, isTrap = false) => {
     set({
-      game: createEmptyGame(config),
+      game: { ...createEmptyGame(config), seed: Math.floor(Math.random() * 1000000) },
       mode: "solo",
       isTrap,
       timer: 0,
@@ -51,7 +51,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   initDuelGame: (config, seed, isTrap = false) => {
     set({
-      game: generateDuelBoard(config, seed),
+      game: { ...createEmptyGame(config), seed },
       mode: "duel",
       isTrap,
       timer: 0,
@@ -61,7 +61,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   initTurnBasedGame: (config, isTrap = false) => {
     set({
-      game: createEmptyGame(config),
+      game: { ...createEmptyGame(config), seed: Math.floor(Math.random() * 1000000) },
       mode: "turn-based",
       isTrap,
       timer: 0,

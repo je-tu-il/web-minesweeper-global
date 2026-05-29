@@ -196,6 +196,7 @@ export interface GameState {
   firstClickDone: boolean;
   result: GameResult;
   explodedCellId?: string;
+  seed?: number;
   flagsUsed: boolean; // tracking pour succès "Puriste"
   clickedRevealed: boolean; // tracking pour succès "Louis"
 }
