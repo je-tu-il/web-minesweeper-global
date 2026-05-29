@@ -47,6 +47,9 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: "playtime_1h", name: "Accro", description: "Jouer pendant 1 heure au total", tier: "bronze", icon: "⏰" },
   { id: "playtime_10h", name: "No-Life", description: "Jouer pendant 10 heures au total", tier: "gold", icon: "🕰️" },
   { id: "playtime_100h", name: "Vétéran", description: "Jouer pendant 100 heures au total", tier: "diamond", icon: "⏳" },
+  // Fun & Tryhard
+  { id: "boom_chain", name: "Malchanceux", description: "Perdre 2 parties de suite", tier: "bronze", icon: "🌧️" },
+  { id: "sweep", name: "Balayage", description: "Dévoiler plus de 50 cases", tier: "silver", icon: "🧹" },
   // Mystères
   { id: "mystere_egirl", name: "E-Girl", description: "Dire uwu dans le chat global", tier: "silver", icon: "🌸", isHidden: true },
   { id: "mystere_boom_first_click", name: "Pas de chance", description: "Perdre sur le tout premier clic (impossible normalement)", tier: "bronze", icon: "💣", isHidden: true },
@@ -65,6 +68,7 @@ export const TIER_COLORS: Record<AchievementTier, string> = {
 export interface UserProfile {
   uid: string;
   username: string;
+  email?: string;
   avatarUrl?: string;
   role: UserRole;
   stats: {

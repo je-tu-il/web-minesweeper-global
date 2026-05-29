@@ -55,7 +55,7 @@ const Index = () => {
 
       // Cross-victory / End Game sync in Duel
       const currentGame = useGameStore.getState().game;
-      if (room.status === "finished" && currentGame.result === "playing") {
+      if (room.mode !== "solo" && room.status === "finished" && currentGame.result === "playing") {
         const wonByMe = room.winner === userProfile.uid;
         useGameStore.setState({
           game: {
@@ -270,6 +270,18 @@ const Index = () => {
     const room = roomRef.current;
     if (!room) return;
     statsUpdatedRef.current = false;
+
+    // Reset room status for multiplayer replays
+    if (selectedRoomId) {
+      import("@/lib/firestore").then(({ updateRoom }) => {
+        updateRoom(selectedRoomId, {
+          status: "playing",
+          winner: null,
+          firstClick: null
+        }).catch(console.error);
+      });
+    }
+
     if (room.mode === "solo") {
       initSoloGame(room.gridConfig, isBanned);
     } else if (room.mode === "duel") {

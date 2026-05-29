@@ -69,6 +69,10 @@ export function checkAchievements(
     if (newStreak >= 10) unlock("win_streak_10");
   }
 
+  // ── Sweep ──
+  const revealedCount = gameState.cells.filter(c => c.status === "revealed" && !c.hasMine).length;
+  if (revealedCount >= 50) unlock("sweep");
+
   // Temps de jeu
   const playTime = (profile.stats.playTime || 0) + timer;
   if (playTime >= 3600) unlock("playtime_1h");

@@ -44,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const newProfile: UserProfile = {
           uid: firebaseUser.uid,
           username: "",
+          email: firebaseUser.email || undefined,
           role: "user",
           stats: { totalWins: 0, totalLosses: 0 },
           achievements: [],
@@ -53,6 +54,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
         await createOrUpdateProfile(firebaseUser.uid, newProfile);
         profile = newProfile;
+      } else if (!profile.email && firebaseUser.email) {
+        // Update existing profile with email
+        await createOrUpdateProfile(firebaseUser.uid, { email: firebaseUser.email });
+        profile.email = firebaseUser.email;
       }
       setUserProfile(profile);
       if (profile.username) {

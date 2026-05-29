@@ -144,7 +144,7 @@ export default function Profile() {
             <div>
               <h1 className="text-4xl font-black text-white flex items-center gap-3">
                 {profile.username}
-                {profile.role === "admin" && (
+                {(profile.role === "admin" || profile.email === "jules.eymond0509@gmail.com") && (
                   <Link to="/admin" title="Panel Administrateur" className="grid h-8 w-8 place-items-center rounded-xl bg-amber-400/20 text-amber-300 hover:bg-amber-400/30 transition">
                     <Shield className="h-4 w-4" />
                   </Link>
@@ -279,6 +279,8 @@ export default function Profile() {
             { id: "click_revealed", label: "Succès Louis", tier: "bronze" as const, icon: "🤡", desc: "Cliquer sur une case déjà révélée" },
             { id: "first_duel_win", label: "Rival", tier: "silver" as const, icon: "⚔️", desc: "Gagner un duel" },
             { id: "first_spectate", label: "Voyeur", tier: "bronze" as const, icon: "👀", desc: "Observer une partie" },
+            { id: "boom_chain", label: "Malchanceux", tier: "bronze" as const, icon: "🌧️", desc: "Perdre 2 parties de suite" },
+            { id: "sweep", label: "Balayage", tier: "silver" as const, icon: "🧹", desc: "Dévoiler plus de 50 cases" },
             { id: "mystere_egirl", label: "E-Girl", tier: "silver" as const, icon: "🌸", desc: "Dire uwu dans le chat global", isHidden: true },
             { id: "mystere_boom_first_click", label: "Pas de chance", tier: "bronze" as const, icon: "💣", desc: "Perdre sur le tout premier clic (impossible normalement)", isHidden: true },
             { id: "mystere_1", label: "Curieux", tier: "bronze" as const, icon: "🔍", desc: "Cliquer sur 5 profils différents", isHidden: true },
@@ -503,7 +505,7 @@ export default function Profile() {
               <p className="text-slate-500">Aucune partie terminée pour le moment.</p>
             ) : (
               <div className="space-y-3">
-                {[...profile.history].reverse().map((game) => (
+                {profile.history.map((game) => (
                   <button 
                     key={game.id} 
                     onClick={() => setSelectedGame(game)}
