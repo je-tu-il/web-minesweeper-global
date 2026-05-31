@@ -99,7 +99,11 @@ export function LobbyPanel() {
     try {
       const room = activeRooms.find((r) => r.roomId === roomId);
       if (room && userProfile) {
-        if (room.firstClick || (room.players[userProfile.uid]?.revealedCells?.length ?? 0) > 0) {
+        const hasStarted = room.firstClick || (room.players[userProfile.uid]?.revealedCells?.length ?? 0) > 0;
+        if (hasStarted) {
+          if (!window.confirm("Attention ! Vous avez déjà commencé cette partie. La supprimer comptera comme une DÉFAITE. Continuer ?")) {
+            return;
+          }
           await addGameToHistory(userProfile.uid, room, { ...createEmptyGame(room.gridConfig), result: "lost" }, 0);
         }
       }

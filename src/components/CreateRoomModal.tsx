@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUiStore } from "@/store/uiStore";
 import { useGameStore } from "@/store/gameStore";
-import { createRoom, joinRoom } from "@/lib/firestore";
+import { createRoom, joinRoom, getGlobalSettings } from "@/lib/firestore";
 import { GRID_PRESETS, type RoomMode, type GridConfig } from "@/types";
 import { Crosshair, Swords, Clock, X, Settings2, ShieldCheck, HelpCircle, Users } from "lucide-react";
 import { collection, query, where, getDocs } from "firebase/firestore";
@@ -56,9 +56,12 @@ export function CreateRoomModal() {
     setLoading(true);
 
     try {
+      const settings = await getGlobalSettings();
+      const limit = userProfile.maxActiveRooms ?? settings.maxActiveGames;
+      
       const snap = await getDocs(query(collection(firestore, "rooms"), where("createdBy", "==", userProfile.uid), where("status", "in", ["waiting", "playing"]))); 
-      if (snap.size >= 5) { 
-        toast.error("Vous ne pouvez pas avoir plus de 5 parties en cours."); 
+      if (snap.size >= limit) { 
+        toast.error(`Vous ne pouvez pas avoir plus de ${limit} parties en cours.`); 
         setLoading(false); 
         return; 
       }
@@ -92,7 +95,7 @@ export function CreateRoomModal() {
       // Initialiser le jeu localement
       const trap = isBanned;
       if (selectedMode === "solo") {
-        initSoloGame(config, trap);
+        initSoloGame(config, seed, trap);
       } else if (selectedMode === "duel") {
         initDuelGame(config, seed, trap);
       } else if (selectedMode === "coop") {

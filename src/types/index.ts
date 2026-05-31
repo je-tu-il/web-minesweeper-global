@@ -88,6 +88,7 @@ export interface UserProfile {
   friends: string[]; // UIDs des gens suivis
   following: string[]; // UIDs des gens qu'on suit
   history?: GameHistoryEntry[]; // Historique des parties
+  maxActiveRooms?: number; // Limite de parties en cours (surcharge globale)
   createdAt: number;
 }
 

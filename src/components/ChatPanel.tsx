@@ -205,7 +205,7 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
 
       {/* Slide panel */}
       <aside
-        className={`fixed bottom-24 right-6 z-50 flex h-[500px] w-80 flex-col rounded-2xl border border-white/10 bg-[#060e1e]/95 shadow-2xl shadow-cyan-900/20 backdrop-blur-xl transition-all duration-300 ease-out ${
+        className={`fixed bottom-24 right-6 z-50 flex h-[500px] max-h-[80vh] w-80 flex-col rounded-2xl border border-white/10 bg-[#060e1e]/95 shadow-2xl shadow-cyan-900/20 backdrop-blur-xl transition-all duration-300 ease-out ${
           isOpen ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0 pointer-events-none"
         }`}
       >

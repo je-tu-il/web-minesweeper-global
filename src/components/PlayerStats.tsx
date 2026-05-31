@@ -30,14 +30,12 @@ export function PlayerStats({ profile }: PlayerStatsProps) {
           <span className="text-xs text-slate-500">Ratio</span>
         </div>
       </div>
-      {total > 0 && (
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 transition-all duration-500"
-            style={{ width: `${winRate}%` }}
-          />
-        </div>
-      )}
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 transition-all duration-500"
+          style={{ width: `${winRate}%` }}
+        />
+      </div>
     </div>
   );
 }

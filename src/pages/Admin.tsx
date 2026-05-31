@@ -15,7 +15,9 @@ import {
   updateUsername,
   resetUserAchievements,
   updateAdminPassword,
-  createOrUpdateProfile
+  createOrUpdateProfile,
+  getGlobalSettings,
+  updateGlobalSettings
 } from "@/lib/firestore";
 import { ACHIEVEMENTS } from "@/types";
 import type { UserProfile, Room, GameHistoryEntry } from "@/types";
@@ -42,6 +44,9 @@ const Admin = () => {
   const [tempPlayTime, setTempPlayTime] = useState("");
   const [tempAchievements, setTempAchievements] = useState<string[]>([]);
   const [tempHistory, setTempHistory] = useState<GameHistoryEntry[]>([]);
+  const [tempMaxRooms, setTempMaxRooms] = useState("");
+
+  const [globalMaxGames, setGlobalMaxGames] = useState(5);
 
   // Subscribe to banned list and rooms
   useEffect(() => {
@@ -54,13 +59,13 @@ const Admin = () => {
     };
   }, [unlocked]);
 
-  // Load all users
   const loadUsers = () => {
     setLoadingUsers(true);
     getAllUsers().then((u) => {
       setUsers(u);
       setLoadingUsers(false);
     });
+    getGlobalSettings().then(s => setGlobalMaxGames(s.maxActiveGames));
   };
 
   useEffect(() => {
@@ -194,6 +199,7 @@ const Admin = () => {
     setTempPlayTime(String(u.stats?.playTime || 0));
     setTempAchievements(u.achievements || []);
     setTempHistory(u.history || []);
+    setTempMaxRooms(u.maxActiveRooms !== undefined ? String(u.maxActiveRooms) : "");
   };
 
   // Save Detailed Changes
@@ -211,6 +217,7 @@ const Admin = () => {
         },
         achievements: tempAchievements,
         history: tempHistory,
+        ...(tempMaxRooms.trim() ? { maxActiveRooms: parseInt(tempMaxRooms) } : { maxActiveRooms: null as any }),
       });
       loadUsers();
       setEditingUser(null);
@@ -294,10 +301,42 @@ const Admin = () => {
 
 
         <div className="grid gap-6 lg:grid-cols-[1.2fr_2fr]">
-          {/* Banned users */}
-          <section className="rounded-[2rem] border border-red-300/15 bg-red-400/[0.05] p-5">
-            <div className="mb-4 flex items-center gap-3">
-              <UserX className="h-5 w-5 text-red-300" />
+          <div className="space-y-6">
+            {/* Global Settings */}
+            <section className="rounded-[2rem] border border-cyan-300/15 bg-cyan-400/[0.05] p-5">
+              <div className="mb-4 flex items-center gap-3">
+                <Shield className="h-5 w-5 text-cyan-300" />
+                <h2 className="text-xl font-bold">Paramètres globaux</h2>
+              </div>
+              <div className="flex items-center justify-between bg-white/[0.04] p-3 rounded-xl border border-white/5">
+                <div>
+                  <p className="text-sm font-bold text-white">Limite globale de parties</p>
+                  <p className="text-[10px] text-slate-400">Combien de parties max en cours par joueur</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="number" 
+                    value={globalMaxGames}
+                    onChange={(e) => setGlobalMaxGames(parseInt(e.target.value) || 1)}
+                    className="w-16 rounded-lg bg-black/50 px-2 py-1 text-center text-sm border border-white/10 text-white outline-none"
+                  />
+                  <button 
+                    onClick={async () => {
+                      await updateGlobalSettings({ maxActiveGames: globalMaxGames });
+                      toast.success("Limite globale sauvegardée.");
+                    }}
+                    className="rounded-lg bg-cyan-400/20 px-3 py-1.5 text-xs font-bold text-cyan-300 hover:bg-cyan-400/30 transition"
+                  >
+                    Sauver
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {/* Banned users */}
+            <section className="rounded-[2rem] border border-red-300/15 bg-red-400/[0.05] p-5">
+              <div className="mb-4 flex items-center gap-3">
+                <UserX className="h-5 w-5 text-red-300" />
               <h2 className="text-xl font-bold">Utilisateurs bannis</h2>
               <span className="rounded-full bg-red-400/15 px-2 py-0.5 text-xs text-red-300">{bannedUsernames.length}</span>
             </div>
@@ -343,6 +382,7 @@ const Admin = () => {
               )}
             </div>
           </section>
+          </div>
 
           {/* Users list */}
           <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-5 backdrop-blur-xl">
@@ -564,6 +604,17 @@ const Admin = () => {
                       />
                     </div>
                   ))}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 mb-1 block truncate text-amber-300/80">Limite Rooms</label>
+                    <input
+                      value={tempMaxRooms}
+                      onChange={(e) => setTempMaxRooms(e.target.value)}
+                      type="number"
+                      min="0"
+                      placeholder="Global"
+                      className="w-full rounded-lg border border-amber-300/20 bg-amber-400/5 px-2.5 py-1.5 text-sm text-white outline-none text-center focus:border-amber-300/40"
+                    />
+                  </div>
                 </div>
               </div>
 

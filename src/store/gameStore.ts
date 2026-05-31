@@ -9,7 +9,7 @@ interface GameStore {
   timer: number;
   isTimerRunning: boolean;
 
-  initSoloGame: (config: GridConfig, isTrap?: boolean) => void;
+  initSoloGame: (config: GridConfig, seed?: number, isTrap?: boolean) => void;
   initDuelGame: (config: GridConfig, seed: number, isTrap?: boolean) => void;
   initTurnBasedGame: (config: GridConfig, isTrap?: boolean) => void;
   initCoopGame: (config: GridConfig, seed: number, isTrap?: boolean) => void;
@@ -40,9 +40,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   timer: 0,
   isTimerRunning: false,
 
-  initSoloGame: (config, isTrap = false) => {
+  initSoloGame: (config, seed, isTrap = false) => {
     set({
-      game: { ...createEmptyGame(config), seed: Math.floor(Math.random() * 1000000) },
+      game: { ...createEmptyGame(config), seed: seed ?? Math.floor(Math.random() * 1000000) },
       mode: "solo",
       isTrap,
       timer: 0,

@@ -345,7 +345,7 @@ const Index = () => {
     }
 
     if (room.mode === "solo") {
-      initSoloGame(room.gridConfig, isBanned);
+      initSoloGame(room.gridConfig, newSeed, isBanned);
     } else if (room.mode === "duel") {
       initDuelGame(room.gridConfig, newSeed, isBanned);
     } else if (room.mode === "coop") {

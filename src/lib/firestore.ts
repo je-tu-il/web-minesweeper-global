@@ -203,6 +203,19 @@ export async function removeBannedUsername(username: string): Promise<void> {
   await updateDoc(ref, { usernames: arrayRemove(username) });
 }
 
+export async function getGlobalSettings(): Promise<{ maxActiveGames: number }> {
+  const snap = await getDoc(doc(firestore, "config", "settings"));
+  if (snap.exists() && typeof snap.data().maxActiveGames === "number") {
+    return { maxActiveGames: snap.data().maxActiveGames as number };
+  }
+  return { maxActiveGames: 5 }; // default
+}
+
+export async function updateGlobalSettings(settings: { maxActiveGames: number }): Promise<void> {
+  const ref = doc(firestore, "config", "settings");
+  await setDoc(ref, settings, { merge: true });
+}
+
 /* ================================================================
    Rooms
    ================================================================ */
