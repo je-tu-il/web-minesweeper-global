@@ -272,9 +272,7 @@ export function setupPresence(uid: string): () => void {
 
   return () => {
     unsubscribe();
-    import("firebase/database").then(({ set }) => {
-      set(userStatusRef, "offline").catch(() => {});
-    });
+    set(userStatusRef, "offline").catch(() => {});
   };
 }
 
