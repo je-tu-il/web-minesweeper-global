@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUiStore } from "@/store/uiStore";
 import { useGameStore } from "@/store/gameStore";
-import { subscribeRoom, updateRoom, updateStats, syncGameState, submitScore, addAchievements, addGameToHistory } from "@/lib/firestore";
+import { subscribeRoom, updateRoom, updateStats, syncGameState, submitScore, addAchievements, addGameToHistory, leaveRoom, deleteRoom } from "@/lib/firestore";
 import { checkAchievements } from "@/lib/achievements";
 import { AuthBar } from "@/components/AuthBar";
 import { GameBoard } from "@/components/GameBoard";
@@ -280,9 +280,7 @@ const Index = () => {
     const room = roomRef.current;
     if (room?.rematchProposal === userProfile?.uid && selectedRoomId) {
       const timeout = setTimeout(() => {
-        import("@/lib/firestore").then(({ updateRoom }) => {
-          updateRoom(selectedRoomId, { rematchProposal: null }).catch(() => {});
-        });
+        updateRoom(selectedRoomId, { rematchProposal: null }).catch(() => {});
       }, 30000);
       return () => clearTimeout(timeout);
     }
@@ -297,9 +295,7 @@ const Index = () => {
 
   const handleRefuseRematch = () => {
     if (selectedRoomId && userProfile) {
-      import("@/lib/firestore").then(({ leaveRoom }) => {
-        leaveRoom(selectedRoomId, userProfile.uid);
-      });
+      leaveRoom(selectedRoomId, userProfile.uid).catch(console.error);
     }
     handleBackToLobby();
   };
@@ -354,9 +350,9 @@ const Index = () => {
   const handleBackToLobby = () => {
     const room = roomRef.current;
     if (room && (room.status === "finished" || room.mode === "solo")) {
-      import("@/lib/firestore").then(({ deleteRoom }) => {
-        deleteRoom(selectedRoomId!).catch(() => {});
-      });
+      if (userProfile && selectedRoomId) {
+        deleteRoom(selectedRoomId).catch(console.error);
+      }
     }
     setSelectedRoomId(null);
     setActivePanel("lobby");
@@ -373,10 +369,8 @@ const Index = () => {
     if (room.mode !== "solo") {
       if (!room.rematchProposal) {
         if (selectedRoomId && userProfile) {
-          import("@/lib/firestore").then(({ updateRoom }) => {
-            updateRoom(selectedRoomId, { rematchProposal: userProfile.uid }).catch(console.error);
-            toast.info("Proposition de revanche envoyée");
-          });
+          updateRoom(selectedRoomId, { rematchProposal: userProfile.uid }).catch(console.error);
+          toast.info("Proposition de revanche envoyée");
         }
         return;
       } else if (room.rematchProposal === userProfile?.uid) {
@@ -388,26 +382,24 @@ const Index = () => {
 
     // Reset room status for multiplayer replays (or solo)
     if (selectedRoomId) {
-      import("@/lib/firestore").then(({ updateRoom }) => {
-        const updates: Record<string, any> = {
-          status: "playing",
-          winner: null,
-          firstClick: null,
-          seed: newSeed,
-          rematchProposal: null,
-        };
-        
-        Object.keys(room.players || {}).forEach(uid => {
-          updates[`players.${uid}.result`] = "playing";
-          updates[`players.${uid}.revealedCount`] = 0;
-          updates[`players.${uid}.revealedCells`] = [];
-          updates[`players.${uid}.flaggedCells`] = [];
-          updates[`players.${uid}.questionCells`] = [];
-          updates[`players.${uid}.explodedCellId`] = null;
-        });
-
-        updateRoom(selectedRoomId, updates).catch(console.error);
+      const updates: Record<string, any> = {
+        status: "playing",
+        winner: null,
+        firstClick: null,
+        seed: newSeed,
+        rematchProposal: null,
+      };
+      
+      Object.keys(room.players || {}).forEach(uid => {
+        updates[`players.${uid}.result`] = "playing";
+        updates[`players.${uid}.revealedCount`] = 0;
+        updates[`players.${uid}.revealedCells`] = [];
+        updates[`players.${uid}.flaggedCells`] = [];
+        updates[`players.${uid}.questionCells`] = [];
+        updates[`players.${uid}.explodedCellId`] = null;
       });
+
+      updateRoom(selectedRoomId, updates).catch(console.error);
     }
 
     if (room.mode === "solo") {
@@ -425,12 +417,10 @@ const Index = () => {
     const room = roomRef.current;
     // Si aucun clic n'a été fait en multi, on peut quitter sans pénalité
     if (room && room.mode !== "solo" && !game.firstClickDone) {
-      import("@/lib/firestore").then(({ leaveRoom, updateRoom }) => {
-        if (selectedRoomId && userProfile) {
-          leaveRoom(selectedRoomId, userProfile.uid);
-          updateRoom(selectedRoomId, { status: "waiting" }).catch(() => {});
-        }
-      });
+      if (selectedRoomId && userProfile) {
+        leaveRoom(selectedRoomId, userProfile.uid);
+        updateRoom(selectedRoomId, { status: "waiting" }).catch(() => {});
+      }
       handleBackToLobby();
       return;
     }
@@ -446,14 +436,12 @@ const Index = () => {
       const endedGame = { ...game, result: "lost" as const };
       useGameStore.setState({ game: endedGame, isTimerRunning: false });
       
-      import("@/lib/firestore").then(({ addGameToHistory, leaveRoom, deleteRoom }) => {
-        addGameToHistory(userProfile.uid, room, endedGame, timer);
-        if (Object.keys(room.players).length <= 1) {
-          deleteRoom(selectedRoomId!);
-        } else {
-          leaveRoom(selectedRoomId!, userProfile.uid);
-        }
-      });
+      addGameToHistory(userProfile.uid, room, endedGame, timer).catch(console.error);
+      if (Object.keys(room.players).length <= 1) {
+        deleteRoom(selectedRoomId!).catch(console.error);
+      } else {
+        leaveRoom(selectedRoomId!, userProfile.uid).catch(console.error);
+      }
       
       handleBackToLobby();
     }

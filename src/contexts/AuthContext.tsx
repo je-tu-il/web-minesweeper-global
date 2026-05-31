@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
-import { createOrUpdateProfile, getUserProfile, getBannedUsernames } from "@/lib/firestore";
+import { createOrUpdateProfile, getUserProfile, getBannedUsernames, setupPresence } from "@/lib/firestore";
 import type { UserProfile } from "@/types";
 
 interface AuthContextValue {
@@ -65,9 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       // Setup presence
-      import("@/lib/firestore").then(({ setupPresence }) => {
+      try {
         setupPresence(firebaseUser.uid);
-      }).catch(console.error);
+      } catch (err) {
+        console.error(err);
+      }
     } catch (error) {
       console.error("Erreur chargement profil:", error);
     }
