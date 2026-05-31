@@ -111,7 +111,6 @@ function GlobalChatInline() {
         </button>
       </form>
     </div>
-    </div>
   );
 }
 
