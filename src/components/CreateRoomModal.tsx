@@ -5,6 +5,9 @@ import { useGameStore } from "@/store/gameStore";
 import { createRoom, joinRoom } from "@/lib/firestore";
 import { GRID_PRESETS, type RoomMode, type GridConfig } from "@/types";
 import { Crosshair, Swords, Clock, X, Settings2, ShieldCheck, HelpCircle, Users } from "lucide-react";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
+import { toast } from "sonner";
 
 const modes: { value: RoomMode; label: string; desc: string; icon: typeof Crosshair }[] = [
   { value: "solo", label: "Solo", desc: "Seul contre le chronomètre", icon: Crosshair },
@@ -53,6 +56,13 @@ export function CreateRoomModal() {
     setLoading(true);
 
     try {
+      const snap = await getDocs(query(collection(firestore, "rooms"), where("createdBy", "==", userProfile.uid), where("status", "in", ["waiting", "playing"]))); 
+      if (snap.size >= 5) { 
+        toast.error("Vous ne pouvez pas avoir plus de 5 parties en cours."); 
+        setLoading(false); 
+        return; 
+      }
+
       const seed = Math.floor(Math.random() * 2147483647);
       const maxPlayers = selectedMode === "solo" ? 1 : 2;
 

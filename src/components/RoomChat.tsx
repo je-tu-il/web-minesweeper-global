@@ -1,5 +1,6 @@
 import { onValue, push, ref, serverTimestamp, set } from "firebase/database";
 import { Send, Users } from "lucide-react";
+import { Link } from "react-router-dom";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { rtdb } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -51,6 +52,7 @@ export function RoomChat({ roomId }: RoomChatProps) {
     setText("");
     await set(push(chatRef), {
       sender: userProfile.username,
+      uid: userProfile.uid,
       text: cleanText,
       timestamp: serverTimestamp(),
     });
@@ -95,7 +97,7 @@ export function RoomChat({ roomId }: RoomChatProps) {
           messages.map((msg) => (
             <div key={msg.id} className="rounded-xl bg-white/[0.06] px-3 py-2">
               <div className="mb-0.5 flex items-center justify-between gap-2 text-xs">
-                <span className="font-semibold text-cyan-200">{msg.sender}</span>
+                <Link to={"/profile/" + msg.uid} className="font-semibold text-cyan-200 hover:underline">{msg.sender}</Link>
                 <span className="text-slate-600">{new Date(msg.timestamp).toLocaleTimeString()}</span>
               </div>
               <p className="text-sm text-slate-200">{msg.text}</p>

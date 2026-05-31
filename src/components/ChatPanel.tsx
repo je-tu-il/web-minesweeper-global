@@ -15,6 +15,7 @@ import {
   Hash,
   Users as UsersIcon,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface ChatPanelProps {
   roomId: string | null;
@@ -53,6 +54,7 @@ function GlobalChatInline() {
     setText("");
     await set(push(chatRef), {
       sender: userProfile.username,
+      uid: userProfile.uid,
       text: clean,
       timestamp: serverTimestamp(),
     });
@@ -76,7 +78,7 @@ function GlobalChatInline() {
             const isMe = msg.sender === userProfile.username;
             return (
               <div key={msg.id} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
-                <span className="mb-0.5 px-1 text-[10px] text-slate-600">{msg.sender}</span>
+                <Link to={"/profile/" + msg.uid} className="mb-0.5 px-1 text-[10px] text-slate-600 hover:underline">{msg.sender}</Link>
                 <div
                   className={`max-w-[85%] break-words rounded-xl px-3 py-1.5 text-sm ${
                     isMe
@@ -201,18 +203,10 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
         <MessageCircle className="h-5 w-5" />
       </button>
 
-      {/* Backdrop */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] transition-opacity duration-300"
-          onClick={() => { setIsOpen(false); setActiveView("list"); }}
-        />
-      )}
-
       {/* Slide panel */}
       <aside
-        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-sm flex-col border-l border-white/10 bg-[#060e1e]/95 shadow-2xl shadow-black/60 backdrop-blur-xl transition-transform duration-300 ease-out ${
-          isOpen ? "translate-x-0" : "translate-x-full"
+        className={`fixed bottom-24 right-6 z-50 flex h-[500px] w-80 flex-col rounded-2xl border border-white/10 bg-[#060e1e]/95 shadow-2xl shadow-cyan-900/20 backdrop-blur-xl transition-all duration-300 ease-out ${
+          isOpen ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0 pointer-events-none"
         }`}
       >
         {/* Header */}

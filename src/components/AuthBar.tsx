@@ -8,12 +8,12 @@ export function AuthBar() {
   if (isLoading) {
     return (
       <header className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 backdrop-blur-xl">
-        <div className="flex items-center gap-3">
+        <Link to="/" className="flex items-center gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-cyan-300 text-slate-950">
             <Bomb className="h-5 w-5" />
           </div>
           <span className="text-lg font-bold text-white">Minesweeper Global</span>
-        </div>
+        </Link>
         <div className="h-8 w-32 animate-pulse rounded-xl bg-white/10" />
       </header>
     );
@@ -22,12 +22,12 @@ export function AuthBar() {
   if (!user || !userProfile) {
     return (
       <header className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 backdrop-blur-xl">
-        <div className="flex items-center gap-3">
+        <Link to="/" className="flex items-center gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-cyan-300 text-slate-950">
             <Bomb className="h-5 w-5" />
           </div>
           <span className="text-lg font-bold text-white">Minesweeper Global</span>
-        </div>
+        </Link>
         <button
           onClick={signInWithGoogle}
           className="rounded-xl border border-cyan-300/25 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/20"
@@ -43,15 +43,15 @@ export function AuthBar() {
 
   return (
     <header className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 backdrop-blur-xl">
-      <div className="flex items-center gap-3">
+      <Link to="/" className="flex items-center gap-3 transition-transform hover:scale-[1.02]">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-cyan-300 text-slate-950">
           <Bomb className="h-5 w-5" />
         </div>
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-cyan-200/60">Minesweeper Global</p>
+          <p className="text-xs uppercase tracking-[0.3em] text-cyan-200/60 hover:text-cyan-200 transition-colors">Minesweeper Global</p>
           <p className="text-sm font-bold text-white">{userProfile.username || "Sans pseudo"}</p>
         </div>
-      </div>
+      </Link>
 
       <div className="flex items-center gap-4">
         <div className="hidden items-center gap-3 text-sm sm:flex">

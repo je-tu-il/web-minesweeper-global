@@ -120,6 +120,7 @@ export async function resetUserStats(uid: string): Promise<void> {
     "stats.winStreak": 0,
     "stats.bestWinStreak": 0,
     "stats.playTime": 0,
+    history: [],
   });
 }
 

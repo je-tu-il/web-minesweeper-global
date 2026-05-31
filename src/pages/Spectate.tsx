@@ -152,11 +152,9 @@ export default function Spectate() {
           <div className="flex items-center gap-3 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-1.5 text-sm font-bold text-cyan-200">
             <Eye className="h-4 w-4" />
             Mode Spectateur
-            {spectatorCount > 0 && (
-              <span className="flex items-center gap-1 rounded-full bg-cyan-300/20 px-2 py-0.5 text-xs">
-                👀 {spectatorCount}
-              </span>
-            )}
+            <span className="flex items-center gap-1 rounded-full bg-cyan-300/20 px-2 py-0.5 text-xs">
+              👀 {spectatorCount}
+            </span>
           </div>
         </div>
 

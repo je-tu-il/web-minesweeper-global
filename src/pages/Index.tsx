@@ -8,7 +8,7 @@ import { AuthBar } from "@/components/AuthBar";
 import { GameBoard } from "@/components/GameBoard";
 import { LobbyPanel } from "@/components/LobbyPanel";
 import { RoomChat } from "@/components/RoomChat";
-import { GlobalChat } from "@/components/GlobalChat";
+
 import { CreateRoomModal } from "@/components/CreateRoomModal";
 import { PlayerStats } from "@/components/PlayerStats";
 import { Leaderboard } from "@/components/Leaderboard";
@@ -486,9 +486,6 @@ const Index = () => {
               {isLeftOpen ? (
                 <>
                   <LobbyPanel />
-                  <div className="h-[400px]">
-                    <GlobalChat />
-                  </div>
                   <PlayerStats profile={userProfile} />
                   <Leaderboard />
                 </>

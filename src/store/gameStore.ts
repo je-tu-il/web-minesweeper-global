@@ -122,6 +122,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   restoreFromSync: (config, seed, mode, revealedCells, flaggedCells, questionCells, explodedCellId, firstClick) => {
     // Recréer le board avec le seed (identique pour tous les joueurs)
     let base = createEmptyGame(config);
+    base.seed = seed;
     if (mode === "duel") {
       base = generateDuelBoard(config, seed);
     } else if (firstClick) {
