@@ -38,6 +38,7 @@ export function LobbyPanel() {
   const { setSelectedRoomId, setActivePanel, setShowCreateRoomModal } = useUiStore();
   const { initSoloGame, initDuelGame, initTurnBasedGame, restoreFromSync } = useGameStore();
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = subscribeRooms(setRooms);
@@ -95,20 +96,26 @@ export function LobbyPanel() {
     setActivePanel("game");
   };
 
-  const handleDelete = async (roomId: string) => {
+  const handleDeleteClick = (roomId: string) => {
+    const room = activeRooms.find((r) => r.roomId === roomId);
+    if (room && userProfile) {
+      const hasStarted = room.firstClick || (room.players[userProfile.uid]?.revealedCells?.length ?? 0) > 0;
+      if (hasStarted) {
+        setDeletingRoomId(roomId);
+        return;
+      }
+    }
+    // Delete directly if not started
+    executeDelete(roomId);
+  };
+
+  const executeDelete = async (roomId: string, addDefeat: boolean = false) => {
     try {
       const room = activeRooms.find((r) => r.roomId === roomId);
-      if (room && userProfile) {
-        const hasStarted = room.firstClick || (room.players[userProfile.uid]?.revealedCells?.length ?? 0) > 0;
-        if (hasStarted) {
-          if (!window.confirm("Attention ! Vous avez déjà commencé cette partie. La supprimer comptera comme une DÉFAITE. Continuer ?")) {
-            return;
-          }
-          await addGameToHistory(userProfile.uid, room, { ...createEmptyGame(room.gridConfig), result: "lost" }, 0);
-        }
+      if (addDefeat && room && userProfile) {
+        await addGameToHistory(userProfile.uid, room, { ...createEmptyGame(room.gridConfig), result: "lost" }, 0);
       }
 
-      // If deleting the currently active room, go back to lobby
       const currentRoomId = useUiStore.getState().selectedRoomId;
       if (currentRoomId === roomId) {
         setSelectedRoomId(null);
@@ -118,6 +125,8 @@ export function LobbyPanel() {
     } catch (e) {
       toast.error("Impossible de supprimer la partie (Permissions insuffisantes ?)");
       console.error(e);
+    } finally {
+      setDeletingRoomId(null);
     }
   };
 
@@ -134,6 +143,7 @@ export function LobbyPanel() {
     const isInRoom = userProfile ? !!(room.players && room.players[userProfile.uid]) : false;
     const canJoin = room.status === "waiting" && playerCount < room.maxPlayers && !isInRoom;
     const creator = Object.values(room.players || {}).find((p) => p.uid === room.createdBy);
+    const opponent = Object.values(room.players || {}).find((p) => p.uid !== room.createdBy);
 
     return (
       <div
@@ -152,7 +162,13 @@ export function LobbyPanel() {
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-1 text-xs text-slate-500">
-              {creator ? (
+              {room.mode === "duel" && opponent ? (
+                <>
+                  <Link to={`/profile/${creator?.uid}`} className="truncate text-cyan-300 hover:underline max-w-[100px]">{creator?.username || "?"}</Link>
+                  <span className="text-slate-500 text-[10px] mx-1">VS</span>
+                  <Link to={`/profile/${opponent.uid}`} className="truncate text-amber-300 hover:underline max-w-[100px]">{opponent.username}</Link>
+                </>
+              ) : creator ? (
                 <Link to={`/profile/${creator.uid}`} className="truncate text-cyan-300 hover:underline max-w-[100px]">
                   {creator.username}
                 </Link>
@@ -194,7 +210,7 @@ export function LobbyPanel() {
           )}
           {isCreator ? (
             <button
-              onClick={() => handleDelete(room.roomId)}
+              onClick={() => handleDeleteClick(room.roomId)}
               className="rounded-lg border border-red-400/20 bg-red-400/10 p-1.5 text-red-300 transition hover:bg-red-400/20"
               title="Supprimer"
             >
@@ -267,6 +283,31 @@ export function LobbyPanel() {
           })
         )}
       </div>
+
+      {deletingRoomId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-[2rem] border border-red-500/30 bg-slate-950 p-6 shadow-2xl shadow-red-500/20 text-center">
+            <h3 className="mb-2 text-xl font-bold text-white">Supprimer la partie ?</h3>
+            <p className="mb-6 text-sm text-slate-400">
+              Attention ! Vous avez déjà commencé cette partie. La supprimer comptera comme une <strong className="text-red-400">DÉFAITE</strong>.
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => setDeletingRoomId(null)}
+                className="rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/10"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => executeDelete(deletingRoomId, true)}
+                className="rounded-xl bg-red-500/20 px-5 py-2.5 text-sm font-semibold text-red-400 transition hover:bg-red-500/30 border border-red-500/30"
+              >
+                Oui, supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

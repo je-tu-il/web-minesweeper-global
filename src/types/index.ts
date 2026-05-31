@@ -89,6 +89,7 @@ export interface UserProfile {
   following: string[]; // UIDs des gens qu'on suit
   history?: GameHistoryEntry[]; // Historique des parties
   maxActiveRooms?: number; // Limite de parties en cours (surcharge globale)
+  isBanned?: boolean; // Vrai si le joueur est banni
   createdAt: number;
 }
 
@@ -147,6 +148,7 @@ export interface Room {
   winner: string | null;
   firstClick?: { x: number, y: number };
   duelMode?: "shared" | "separate";
+  rematchProposal?: string; // UID du joueur qui propose
 }
 
 /* ── Leaderboard ── */

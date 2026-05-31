@@ -61,8 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setUserProfile(profile);
       if (profile.username) {
-        const bannedList = await getBannedUsernames();
-        setIsBanned(bannedList.includes(profile.username));
+        setIsBanned(!!profile.isBanned);
       }
       
       // Setup presence
@@ -88,9 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     await createOrUpdateProfile(user.uid, data);
     
-    if (data.username) {
-      const bannedList = await getBannedUsernames();
-      setIsBanned(bannedList.includes(data.username));
+    if (data.username && userProfile) {
+      setIsBanned(!!userProfile.isBanned);
     }
     
     setUserProfile((prev) => (prev ? { ...prev, ...data } : null));

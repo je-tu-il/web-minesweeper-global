@@ -52,7 +52,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   initDuelGame: (config, seed, isTrap = false) => {
     set({
-      game: { ...createEmptyGame(config), seed },
+      game: { ...generateDuelBoard(config, seed), seed },
       mode: "duel",
       isTrap,
       timer: 0,
@@ -181,7 +181,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       game: {
         ...base,
         cells,
-        firstClickDone: revealedCells.length > 0,
+        firstClickDone: base.firstClickDone || revealedCells.length > 0,
         result,
         explodedCellId,
         flagsUsed: flaggedCells.length > 0,

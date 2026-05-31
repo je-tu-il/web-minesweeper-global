@@ -111,6 +111,114 @@ function GlobalChatInline() {
         </button>
       </form>
     </div>
+    </div>
+  );
+}
+
+// ── Private Chat (inline) ──────────────────────────────────
+function PrivateChatInline({ targetUser }: { targetUser: { uid: string, username: string } }) {
+  const { user, userProfile } = useAuth();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [text, setText] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const chatId = useMemo(() => {
+    if (!userProfile?.uid || !targetUser.uid) return null;
+    return [userProfile.uid, targetUser.uid].sort().join("_");
+  }, [userProfile?.uid, targetUser.uid]);
+
+  const chatRef = useMemo(() => {
+    if (!chatId) return null;
+    return ref(rtdb, `privateChats/${chatId}/messages`);
+  }, [chatId]);
+
+  useEffect(() => {
+    if (!chatRef || !user) return;
+    const unsubscribe = onValue(chatRef, (snapshot) => {
+      const value = snapshot.val() as Record<string, Omit<ChatMessage, "id">> | null;
+      const msgs = Object.entries(value ?? {})
+        .map(([id, m]) => ({ id, ...m, timestamp: Number(m.timestamp ?? Date.now()) }))
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .slice(-80);
+      setMessages(msgs);
+    });
+    return unsubscribe;
+  }, [chatRef, user]);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages]);
+
+  const sendMessage = async (e: FormEvent) => {
+    e.preventDefault();
+    const clean = text.trim();
+    if (!clean || !userProfile?.username || !chatRef || !chatId) return;
+    setText("");
+    
+    // Send message
+    await set(push(chatRef), {
+      sender: userProfile.username,
+      uid: userProfile.uid,
+      text: clean,
+      timestamp: serverTimestamp(),
+    });
+
+    // Update unread status for target user
+    const targetUnreadRef = ref(rtdb, `userPrivateUnread/${targetUser.uid}/${chatId}`);
+    set(targetUnreadRef, true);
+  };
+
+  // Clear unread for this chat while we have it open
+  useEffect(() => {
+    if (!userProfile?.uid || !chatId) return;
+    const myUnreadRef = ref(rtdb, `userPrivateUnread/${userProfile.uid}/${chatId}`);
+    set(myUnreadRef, null); // Clear it
+  }, [chatId, userProfile?.uid, messages.length]);
+
+  return (
+    <div className="flex h-full flex-col">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 && (
+          <p className="text-center text-xs text-slate-500 mt-4">Aucun message. Dites bonjour !</p>
+        )}
+        {messages.map((m) => {
+          const isMe = m.uid === user?.uid;
+          return (
+            <div key={m.id} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
+              <div
+                className={`max-w-[85%] rounded-2xl px-4 py-2 text-[13px] leading-relaxed ${
+                  isMe ? "bg-cyan-500/20 text-cyan-100 rounded-tr-sm" : "bg-white/10 text-slate-200 rounded-tl-sm"
+                }`}
+                style={{ wordBreak: "break-word" }}
+              >
+                {m.text}
+              </div>
+              <span className="mt-1 text-[10px] text-slate-500">
+                {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <form onSubmit={sendMessage} className="flex items-center gap-2 border-t border-white/10 p-3 bg-white/[0.02]">
+        <input
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={`Message @${targetUser.username}…`}
+          maxLength={250}
+          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-300/50 font-sans"
+        />
+        <button
+          type="submit"
+          disabled={!text.trim()}
+          className="rounded-xl bg-cyan-300 px-3 text-slate-950 transition hover:bg-cyan-200 disabled:opacity-30 h-9 flex items-center justify-center"
+        >
+          <Send className="h-4 w-4" />
+        </button>
+      </form>
+    </div>
   );
 }
 
@@ -176,6 +284,22 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeView, setActiveView] = useState<"list" | "global" | "room" | "private">("list");
   const { activePrivateChat, setActivePrivateChat } = useUiStore();
+  const [hasUnread, setHasUnread] = useState(false);
+
+  // Listen for unread messages globally
+  useEffect(() => {
+    if (!userProfile?.uid) return;
+    const unreadRef = ref(rtdb, `userPrivateUnread/${userProfile.uid}`);
+    const unsub = onValue(unreadRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val();
+        setHasUnread(Object.values(data).some(v => v === true));
+      } else {
+        setHasUnread(false);
+      }
+    });
+    return unsub;
+  }, [userProfile?.uid]);
 
   // When private chat is set from outside (e.g., profile page), open panel and show it
   useEffect(() => {
@@ -197,10 +321,16 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
       {/* Toggle button — fixed right edge */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed right-4 top-1/2 z-40 -translate-y-1/2 rounded-xl border border-cyan-300/25 bg-cyan-300/10 p-2.5 text-cyan-200 shadow-lg shadow-cyan-500/10 backdrop-blur transition hover:bg-cyan-300/20"
+        className="fixed right-4 top-1/2 z-40 -translate-y-1/2 rounded-xl border border-cyan-300/25 bg-cyan-300/10 p-2.5 text-cyan-200 shadow-lg shadow-cyan-500/10 backdrop-blur transition hover:bg-cyan-300/20 relative"
         title="Chat"
       >
         <MessageCircle className="h-5 w-5" />
+        {hasUnread && !isOpen && (
+          <span className="absolute -top-1 -right-1 flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border border-slate-900"></span>
+          </span>
+        )}
       </button>
 
       {/* Slide panel */}
@@ -248,21 +378,21 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
                 {roomId && (
                   <ConversationItem
                     icon={<Hash className="h-5 w-5 text-amber-400" />}
-                    label="Chat de Room"
-                    sublabel="Discussion de la partie en cours"
+                    label="Chat Room"
+                    sublabel="Discuter avec les joueurs de la room"
                     color="bg-amber-400/10"
                     onClick={() => setActiveView("room")}
                   />
                 )}
               </div>
 
-              {/* Suggestions */}
+              {/* Suggestions / Amis */}
               {following.length > 0 && (
                 <div className="mt-4">
                   <div className="mb-2 flex items-center gap-1.5 px-1">
                     <UsersIcon className="h-3.5 w-3.5 text-slate-500" />
                     <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">
-                      Suggestions
+                      Amis
                     </span>
                   </div>
                   <div className="space-y-0.5">
@@ -301,13 +431,7 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
           )}
 
           {activeView === "private" && activePrivateChat && (
-            <div className="flex flex-1 items-center justify-center text-xs text-slate-500 px-4 text-center">
-              <div>
-                <p className="text-base mb-2">💬</p>
-                <p>Messages privés avec <strong className="text-cyan-300">{activePrivateChat.username}</strong></p>
-                <p className="mt-1 text-slate-600">Fonctionnalité à venir</p>
-              </div>
-            </div>
+            <PrivateChatInline targetUser={activePrivateChat} />
           )}
         </div>
       </aside>

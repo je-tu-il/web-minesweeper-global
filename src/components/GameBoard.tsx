@@ -71,7 +71,7 @@ const CellComponent = React.memo(({ cell, cellSize, isExploded, disabled, isGame
         // 🔹 Mine explosée 🔹
         isExploded && "bg-red-500 border border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.6)] z-10 scale-105",
         // 🔹 Mine révélée (game over) 🔹
-        isRevealed && isMine && !isExploded && "bg-slate-900 border border-slate-800 shadow-[inset_0_3px_6px_rgba(0,0,0,0.8)]",
+        isRevealed && isMine && !isExploded && "bg-red-500/40 border border-red-500/50 shadow-[inset_0_3px_6px_rgba(0,0,0,0.8)] text-red-200",
         // 🔹 Disabled 🔹
         disabled ? "cursor-not-allowed opacity-80" : "cursor-pointer",
       ]

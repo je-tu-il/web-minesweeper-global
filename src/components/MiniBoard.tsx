@@ -25,7 +25,7 @@ export function MiniBoard({ config, revealedCells, flaggedCells, explodedCellId 
 
   return (
     <div
-      className="overflow-hidden rounded-lg border border-white/10 bg-slate-900 shadow-inner blur-[1px] hover:blur-none transition-all duration-300"
+      className="overflow-hidden rounded-lg border border-white/10 bg-slate-900 shadow-inner transition-all duration-300"
       style={{
         display: "grid",
         gridTemplateColumns: `repeat(${config.width}, ${px}px)`,

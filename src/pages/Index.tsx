@@ -18,6 +18,9 @@ import { ChatPanel } from "@/components/ChatPanel";
 import { Bomb, Swords, Clock, Crosshair, MessageCircle, LayoutGrid, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Flag } from "lucide-react";
 import { toast } from "sonner";
 import type { Room } from "@/types";
+import { rtdb } from "@/lib/firebase";
+import { ref as rtdbRef, onValue } from "firebase/database";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   const { user, userProfile, isLoading, isBanned, signInWithGoogle, refreshProfile } = useAuth();
@@ -27,11 +30,14 @@ const Index = () => {
   const roomRef = useRef<Room | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const statsUpdatedRef = useRef(false);
+  const gameBoardRef = useRef<HTMLDivElement>(null);
 
   const [newAchievements, setNewAchievements] = useState<string[]>([]);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isLeftOpen, setIsLeftOpen] = useState(true);
   const [isRightOpen, setIsRightOpen] = useState(true);
+  const [spectatorCount, setSpectatorCount] = useState(0);
+  const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
 
   // Timer
   useEffect(() => {
@@ -158,6 +164,19 @@ const Index = () => {
     return unsub;
   }, [selectedRoomId, userProfile, isBanned, initDuelGame, initTurnBasedGame]);
 
+  // Track spectators
+  useEffect(() => {
+    if (!selectedRoomId) {
+      setSpectatorCount(0);
+      return;
+    }
+    const specRef = rtdbRef(rtdb, `liveRoom/${selectedRoomId}/spectators`);
+    const unsub = onValue(specRef, (snap) => {
+      setSpectatorCount(snap.exists() ? Object.keys(snap.val()).length : 0);
+    });
+    return () => unsub();
+  }, [selectedRoomId]);
+
   // Update stats, achievements, leaderboard when game ends
   useEffect(() => {
     if (game.result !== "playing" && userProfile && selectedRoomId && !statsUpdatedRef.current) {
@@ -256,6 +275,35 @@ const Index = () => {
     }
   }, [userProfile, setShowUsernameModal]);
 
+  // Timeout for rematch proposal
+  useEffect(() => {
+    const room = roomRef.current;
+    if (room?.rematchProposal === userProfile?.uid && selectedRoomId) {
+      const timeout = setTimeout(() => {
+        import("@/lib/firestore").then(({ updateRoom }) => {
+          updateRoom(selectedRoomId, { rematchProposal: null }).catch(() => {});
+        });
+      }, 30000);
+      return () => clearTimeout(timeout);
+    }
+  }, [roomRef.current?.rematchProposal, userProfile?.uid, selectedRoomId]);
+
+  // Scroll to game board when game starts
+  useEffect(() => {
+    if (isInGame && game.result === "playing" && gameBoardRef.current) {
+      gameBoardRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [isInGame, game.result, game.firstClickDone]);
+
+  const handleRefuseRematch = () => {
+    if (selectedRoomId && userProfile) {
+      import("@/lib/firestore").then(({ leaveRoom }) => {
+        leaveRoom(selectedRoomId, userProfile.uid);
+      });
+    }
+    handleBackToLobby();
+  };
+
   // Helper pour sync Firestore
   const pushGameStateToFirestore = (newGame: typeof game) => {
     if (!selectedRoomId || !userProfile) return;
@@ -321,7 +369,24 @@ const Index = () => {
 
     const newSeed = room.seed + 1;
 
-    // Reset room status for multiplayer replays
+    // If multiplayer and not already proposing, send proposal
+    if (room.mode !== "solo") {
+      if (!room.rematchProposal) {
+        if (selectedRoomId && userProfile) {
+          import("@/lib/firestore").then(({ updateRoom }) => {
+            updateRoom(selectedRoomId, { rematchProposal: userProfile.uid }).catch(console.error);
+            toast.info("Proposition de revanche envoyée");
+          });
+        }
+        return;
+      } else if (room.rematchProposal === userProfile?.uid) {
+        // We already proposed, waiting for others...
+        return;
+      }
+      // Otherwise, we are accepting someone else's proposal! Fall through to reset game.
+    }
+
+    // Reset room status for multiplayer replays (or solo)
     if (selectedRoomId) {
       import("@/lib/firestore").then(({ updateRoom }) => {
         const updates: Record<string, any> = {
@@ -329,6 +394,7 @@ const Index = () => {
           winner: null,
           firstClick: null,
           seed: newSeed,
+          rematchProposal: null,
         };
         
         Object.keys(room.players || {}).forEach(uid => {
@@ -355,16 +421,31 @@ const Index = () => {
     }
   };
 
-  const handleSurrender = () => {
+  const handleSurrenderClick = () => {
+    const room = roomRef.current;
+    // Si aucun clic n'a été fait en multi, on peut quitter sans pénalité
+    if (room && room.mode !== "solo" && !game.firstClickDone) {
+      import("@/lib/firestore").then(({ leaveRoom, updateRoom }) => {
+        if (selectedRoomId && userProfile) {
+          leaveRoom(selectedRoomId, userProfile.uid);
+          updateRoom(selectedRoomId, { status: "waiting" }).catch(() => {});
+        }
+      });
+      handleBackToLobby();
+      return;
+    }
+    
+    // Sinon, on affiche la modale
+    setShowSurrenderConfirm(true);
+  };
+
+  const confirmSurrender = () => {
+    setShowSurrenderConfirm(false);
     const room = roomRef.current;
     if (room && userProfile) {
-      // Si c'est solo, on ajoute simplement à l'historique
-      // Si c'est multijoueur, ça le notera perdu pour le joueur qui abandonne.
       const endedGame = { ...game, result: "lost" as const };
       useGameStore.setState({ game: endedGame, isTimerRunning: false });
       
-      // L'enregistrement en BDD se fera via un useEffect ou un appel manuel
-      // On va simplifier: on ajoute la défaite et on quitte/supprime la room.
       import("@/lib/firestore").then(({ addGameToHistory, leaveRoom, deleteRoom }) => {
         addGameToHistory(userProfile.uid, room, endedGame, timer);
         if (Object.keys(room.players).length <= 1) {
@@ -376,6 +457,10 @@ const Index = () => {
       
       handleBackToLobby();
     }
+  };
+
+  const cancelSurrender = () => {
+    setShowSurrenderConfirm(false);
   };
 
   // ── Loading ──
@@ -454,8 +539,35 @@ const Index = () => {
           <AchievementToast achievementIds={newAchievements} onDone={() => setNewAchievements([])} />
         )}
 
-        {/* Modals */}
+        {/* UI Modals */}
+        {showUsernameModal && <UsernameModal />}
         {showCreateRoomModal && <CreateRoomModal />}
+        
+        {/* Surrender Confirm Modal */}
+        {showSurrenderConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm rounded-[2rem] border border-red-500/30 bg-slate-950 p-6 shadow-2xl shadow-red-500/20 text-center">
+              <h3 className="mb-2 text-xl font-bold text-white">Abandonner la partie ?</h3>
+              <p className="mb-6 text-sm text-slate-400">
+                Attention ! Vous avez déjà commencé cette partie. La quitter comptera comme une <strong className="text-red-400">DÉFAITE</strong>.
+              </p>
+              <div className="flex justify-center gap-3">
+                <button
+                  onClick={cancelSurrender}
+                  className="rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/10"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={confirmSurrender}
+                  className="rounded-xl bg-red-500/20 px-5 py-2.5 text-sm font-semibold text-red-400 transition hover:bg-red-500/30 border border-red-500/30"
+                >
+                  Oui, abandonner
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Mobile tabs */}
         <div className="mb-4 flex gap-2 lg:hidden">
@@ -541,7 +653,7 @@ const Index = () => {
                     {opponentInfo && room.mode === "duel" && room.status === "playing" && (
                       <div className="flex items-center gap-2 text-sm">
                         <span className="text-slate-500">vs</span>
-                        <span className="font-semibold text-cyan-200">{opponentInfo.username}</span>
+                        <Link to={`/profile/${Object.keys(room.players).find(uid => uid !== userProfile.uid)}`} className="font-semibold text-cyan-200 hover:text-cyan-100 hover:underline transition-colors">{opponentInfo.username}</Link>
                         <span className="text-slate-500">{opponentInfo.result !== "playing" ? "(Terminé)" : "(En jeu)"}</span>
                       </div>
                     )}
@@ -559,6 +671,14 @@ const Index = () => {
                   </div>
                 )}
 
+                {/* Spectator Global Counter */}
+                {room && spectatorCount > 0 && (
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 rounded-full border border-white/10 bg-slate-900/80 px-3 py-1.5 text-sm font-semibold text-white shadow-xl backdrop-blur-md">
+                    <span className="text-base">👀</span>
+                    <span>{spectatorCount}</span>
+                  </div>
+                )}
+
                 {/* Board */}
                 {room?.status === "waiting" && room.mode !== "solo" ? (
                   <div className="flex flex-col items-center justify-center rounded-[2rem] border border-white/10 bg-white/[0.04] p-16 backdrop-blur">
@@ -567,7 +687,7 @@ const Index = () => {
                     <p className="mt-1 text-sm text-slate-500">Partagez le lien de votre room</p>
                   </div>
                 ) : (
-                  <div className={`flex flex-col items-center gap-6 xl:flex-row xl:items-start xl:justify-center min-w-0 max-w-full ${isFocusMode ? "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" : ""}`}>
+                  <div ref={gameBoardRef} className={`flex flex-col items-center gap-6 xl:flex-row xl:items-start xl:justify-center min-w-0 max-w-full ${isFocusMode ? "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" : ""}`}>
                     <div className="min-w-0 max-w-full">
                       <GameBoard
                         onCellClick={onCellClick}
@@ -576,16 +696,26 @@ const Index = () => {
                         isFocusMode={isFocusMode}
                       />
                     </div>
+                    {/* Opponent Progress in Duel (Shared) */}
+                    {room?.mode === "duel" && room.duelMode === "shared" && opponentInfo && (
+                      <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 p-4 backdrop-blur-xl xl:self-start">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Avancée de {opponentInfo.username}</span>
+                        <div className="flex gap-4 text-sm font-bold">
+                          <span className="flex items-center gap-1 text-amber-300"><Flag className="h-4 w-4" /> {(opponentInfo.flaggedCells || []).length}</span>
+                          <span className="flex items-center gap-1 text-emerald-300"><Zap className="h-4 w-4" /> {(opponentInfo.revealedCells || []).length}</span>
+                        </div>
+                      </div>
+                    )}
                     
                     {/* Opponent MiniMap in Duel (Separate only) */}
                     {room?.mode === "duel" && room.duelMode === "separate" && opponentInfo && (
                       <div className="flex flex-col items-center gap-3 rounded-[2rem] border border-white/10 bg-slate-950/40 p-5 backdrop-blur-xl">
-                        <div className="flex items-center gap-2">
-                          <span className="relative flex h-3 w-3">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500"></span>
-                          </span>
+                        <div className="flex flex-col items-center gap-2">
                           <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Progression de {opponentInfo.username}</span>
+                          <div className="flex gap-4 text-xs font-bold">
+                            <span className="text-amber-300">{(opponentInfo.flaggedCells || []).length} 🚩</span>
+                            <span className="text-emerald-300">{(opponentInfo.revealedCells || []).length} ⚡</span>
+                          </div>
                         </div>
                         <MiniBoard
                           config={room.gridConfig}
@@ -600,24 +730,52 @@ const Index = () => {
 
                 {/* Game actions */}
                 {game.result !== "playing" ? (
-                  <div className="flex justify-center gap-3">
-                    <button
-                      onClick={handleNewGame}
-                      className="rounded-xl border border-cyan-300/25 bg-cyan-300/10 px-5 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/20"
-                    >
-                      Nouvelle partie
-                    </button>
-                    <button
-                      onClick={handleBackToLobby}
-                      className="rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-slate-400 transition hover:bg-white/10"
-                    >
-                      Retour au lobby
-                    </button>
-                  </div>
+                  room?.mode !== "solo" && room?.rematchProposal ? (
+                    room.rematchProposal === userProfile?.uid ? (
+                      <div className="flex justify-center gap-3">
+                        <div className="rounded-xl border border-cyan-300/25 bg-cyan-300/10 px-5 py-2.5 text-sm font-semibold text-cyan-200">
+                          ⏳ En attente de l'adversaire... (30s)
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-3">
+                        <p className="text-sm font-bold text-cyan-200">L'adversaire propose une revanche !</p>
+                        <div className="flex justify-center gap-3">
+                          <button
+                            onClick={handleNewGame}
+                            className="rounded-xl bg-emerald-500/20 px-5 py-2.5 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/30 border border-emerald-500/30"
+                          >
+                            Accepter
+                          </button>
+                          <button
+                            onClick={handleRefuseRematch}
+                            className="rounded-xl bg-red-500/20 px-5 py-2.5 text-sm font-semibold text-red-300 transition hover:bg-red-500/30 border border-red-500/30"
+                          >
+                            Refuser
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  ) : (
+                    <div className="flex justify-center gap-3">
+                      <button
+                        onClick={handleNewGame}
+                        className="rounded-xl border border-cyan-300/25 bg-cyan-300/10 px-5 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/20"
+                      >
+                        Nouvelle partie
+                      </button>
+                      <button
+                        onClick={handleBackToLobby}
+                        className="rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-slate-400 transition hover:bg-white/10"
+                      >
+                        Retour au lobby
+                      </button>
+                    </div>
+                  )
                 ) : (
                   <div className="flex justify-center gap-3">
                     <button
-                      onClick={handleSurrender}
+                      onClick={handleSurrenderClick}
                       className="flex items-center gap-2 rounded-xl border border-red-400/25 bg-red-400/10 px-4 py-2 text-sm font-medium text-red-300 transition hover:bg-red-400/20"
                     >
                       <Flag className="h-4 w-4" />

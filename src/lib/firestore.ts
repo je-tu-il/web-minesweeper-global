@@ -166,18 +166,15 @@ export async function unfollowUser(myUid: string, targetUid: string): Promise<vo
    ================================================================ */
 
 export async function getBannedUsernames(): Promise<string[]> {
-  const snap = await getDoc(doc(firestore, "config", "bannedUsers"));
-  if (!snap.exists()) return [];
-  return (snap.data()?.usernames as string[]) ?? [];
+  const q = query(collection(firestore, "users"), where("isBanned", "==", true));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data().username);
 }
 
 export function subscribeBannedUsernames(callback: (usernames: string[]) => void): () => void {
-  return onSnapshot(doc(firestore, "config", "bannedUsers"), (snap) => {
-    if (snap.exists()) {
-      callback((snap.data().usernames as string[]) ?? []);
-    } else {
-      callback([]);
-    }
+  const q = query(collection(firestore, "users"), where("isBanned", "==", true));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map(d => d.data().username));
   });
 }
 
@@ -194,13 +191,21 @@ export async function updateAdminPassword(newPassword: string): Promise<void> {
 }
 
 export async function addBannedUsername(username: string): Promise<void> {
-  const ref = doc(firestore, "config", "bannedUsers");
-  await setDoc(ref, { usernames: arrayUnion(username) }, { merge: true });
+  const q = query(collection(firestore, "users"), where("username", "==", username));
+  const snap = await getDocs(q);
+  if (!snap.empty) {
+    const docRef = doc(firestore, "users", snap.docs[0].id);
+    await updateDoc(docRef, { isBanned: true });
+  }
 }
 
 export async function removeBannedUsername(username: string): Promise<void> {
-  const ref = doc(firestore, "config", "bannedUsers");
-  await updateDoc(ref, { usernames: arrayRemove(username) });
+  const q = query(collection(firestore, "users"), where("username", "==", username));
+  const snap = await getDocs(q);
+  if (!snap.empty) {
+    const docRef = doc(firestore, "users", snap.docs[0].id);
+    await updateDoc(docRef, { isBanned: false });
+  }
 }
 
 export async function getGlobalSettings(): Promise<{ maxActiveGames: number }> {
