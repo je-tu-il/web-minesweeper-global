@@ -241,6 +241,7 @@ export default function Profile() {
                 { id: "no_flag_beginner", label: "Débutant", tier: "bronze" as const },
                 { id: "no_flag_intermediate", label: "Intermédiaire", tier: "silver" as const },
                 { id: "no_flag_expert", label: "Expert", tier: "gold" as const },
+                { id: "no_flag", label: "Universel", tier: "gold" as const },
               ]
             },
             {
@@ -249,8 +250,10 @@ export default function Profile() {
               icon: "⚡",
               tiers: [
                 { id: "speed_beginner", label: "Débutant (<15s)", tier: "bronze" as const },
-                { id: "speed_intermediate", label: "Intermédiaire (<60s)", tier: "silver" as const },
+                { id: "speed_intermediate", label: "Inter. (<60s)", tier: "silver" as const },
                 { id: "speed_expert", label: "Expert (<120s)", tier: "gold" as const },
+                { id: "speed_30", label: "<30s", tier: "silver" as const },
+                { id: "speed_10", label: "<10s", tier: "gold" as const },
               ]
             },
             {
@@ -261,6 +264,15 @@ export default function Profile() {
                 { id: "win_streak_3", label: "3 de Suite", tier: "bronze" as const },
                 { id: "win_streak_5", label: "5 de Suite", tier: "silver" as const },
                 { id: "win_streak_10", label: "10 de Suite", tier: "gold" as const },
+              ]
+            },
+            {
+              title: "Victoires Totales",
+              desc: "Accumuler un nombre impressionnant de victoires.",
+              icon: "💯",
+              tiers: [
+                { id: "win_total_50", label: "50 Victoires", tier: "silver" as const },
+                { id: "win_total_100", label: "100 Victoires", tier: "gold" as const },
               ]
             },
             {
@@ -281,6 +293,9 @@ export default function Profile() {
             { id: "first_spectate", label: "Voyeur", tier: "bronze" as const, icon: "👀", desc: "Observer une partie" },
             { id: "boom_chain", label: "Malchanceux", tier: "bronze" as const, icon: "🌧️", desc: "Perdre 2 parties de suite" },
             { id: "sweep", label: "Balayage", tier: "silver" as const, icon: "🧹", desc: "Dévoiler plus de 50 cases" },
+            { id: "sunday_player", label: "Du Dimanche", tier: "bronze" as const, icon: "📅", desc: "Jouer un dimanche" },
+            { id: "insomniac", label: "Insomniaque", tier: "silver" as const, icon: "🦉", desc: "Jouer entre 2h et 5h du matin" },
+            { id: "kamikaze", label: "Kamikaze", tier: "bronze" as const, icon: "💥", desc: "Perdre en moins de 3 secondes" },
             { id: "mystere_egirl", label: "E-Girl", tier: "silver" as const, icon: "🌸", desc: "Dire uwu dans le chat global", isHidden: true },
             { id: "mystere_boom_first_click", label: "Pas de chance", tier: "bronze" as const, icon: "💣", desc: "Perdre sur le tout premier clic (impossible normalement)", isHidden: true },
             { id: "mystere_1", label: "Curieux", tier: "bronze" as const, icon: "🔍", desc: "Cliquer sur 5 profils différents", isHidden: true },

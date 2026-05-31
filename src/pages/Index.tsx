@@ -259,7 +259,7 @@ const Index = () => {
   // Helper pour sync Firestore
   const pushGameStateToFirestore = (newGame: typeof game) => {
     if (!selectedRoomId || !userProfile) return;
-    const revealed = newGame.cells.filter(c => c.status === "revealed" && !c.hasMine).map(c => c.id);
+    const revealed = newGame.cells.filter(c => c.status === "revealed").map(c => c.id);
     const flagged = newGame.cells.filter(c => c.mark === "flag").map(c => c.id);
     const question = newGame.cells.filter(c => c.mark === "question").map(c => c.id);
     syncGameState(selectedRoomId, userProfile.uid, revealed, flagged, question, newGame.explodedCellId);

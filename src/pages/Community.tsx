@@ -13,6 +13,12 @@ import { Link } from "react-router-dom";
 
 import { AuthBar } from "@/components/AuthBar";
 
+const MEDAL_COLORS: Record<number, { bg: string; text: string; ring: string; icon: typeof Crown }> = {
+  0: { bg: "border-amber-400/30 bg-gradient-to-br from-amber-400/10 to-amber-500/5", text: "text-amber-300", ring: "ring-amber-400/50", icon: Crown },
+  1: { bg: "border-slate-300/30 bg-gradient-to-br from-slate-300/10 to-slate-400/5", text: "text-slate-200", ring: "ring-slate-300/50", icon: Medal },
+  2: { bg: "border-orange-400/30 bg-gradient-to-br from-orange-400/10 to-orange-500/5", text: "text-orange-300", ring: "ring-orange-400/50", icon: Award },
+};
+
 export default function Community() {
   const { userProfile } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);

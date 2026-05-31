@@ -29,7 +29,10 @@ service cloud.firestore {
     // Config admin (bannis etc.)
     match /config/{docId} {
       allow read: if request.auth != null;
-      // write réservé à l'admin via console
+      allow write: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        request.auth.token.email == 'jules.eymond0509@gmail.com'
+      );
     }
   }
 }

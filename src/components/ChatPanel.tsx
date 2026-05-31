@@ -16,11 +16,6 @@ import {
   Users as UsersIcon,
 } from "lucide-react";
 
-/* ═══════════════════════════════════════════════════════════
-   ChatPanel – sliding side-panel with Global / Room tabs
-   + "Suggestions" friend list at the bottom
-   ═══════════════════════════════════════════════════════════ */
-
 interface ChatPanelProps {
   roomId: string | null;
 }
@@ -118,7 +113,7 @@ function GlobalChatInline() {
 }
 
 // ── Friend suggestion row ─────────────────────────────────
-function FriendSuggestionRow({ uid }: { uid: string }) {
+function FriendSuggestionRow({ uid, onClick }: { uid: string; onClick: () => void }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
@@ -130,16 +125,46 @@ function FriendSuggestionRow({ uid }: { uid: string }) {
   const initial = (profile.username || "?")[0].toUpperCase();
 
   return (
-    <div className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 transition hover:bg-white/[0.04]">
-      <div className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-xs font-bold text-white">
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 transition hover:bg-white/[0.06] text-left"
+    >
+      <div className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-xs font-bold text-white">
         {profile.avatarUrl ? (
           <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
         ) : (
           initial
         )}
       </div>
-      <span className="truncate text-sm text-slate-300">{profile.username}</span>
-    </div>
+      <div className="min-w-0 flex-1">
+        <span className="truncate text-sm font-medium text-slate-200 block">{profile.username}</span>
+        <span className="text-[10px] text-slate-500">Envoyer un message</span>
+      </div>
+    </button>
+  );
+}
+
+// ── Conversation list item ────────────────────────────────
+function ConversationItem({ icon, label, sublabel, color, onClick }: {
+  icon: React.ReactNode;
+  label: string;
+  sublabel: string;
+  color: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex w-full items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 transition hover:bg-white/[0.06] hover:border-white/[0.12] text-left`}
+    >
+      <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${color}`}>
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <span className="text-sm font-semibold text-white block">{label}</span>
+        <span className="text-[10px] text-slate-500">{sublabel}</span>
+      </div>
+    </button>
   );
 }
 
@@ -147,13 +172,23 @@ function FriendSuggestionRow({ uid }: { uid: string }) {
 export function ChatPanel({ roomId }: ChatPanelProps) {
   const { userProfile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  // Sync tab when roomId changes (No longer needed since tabs are removed)
-  // useEffect(() => {
-  //   if (roomId) setActiveTab("room");
-  //   else setActiveTab("global");
-  // }, [roomId]);
+  const [activeView, setActiveView] = useState<"list" | "global" | "room" | "private">("list");
+  const { activePrivateChat, setActivePrivateChat } = useUiStore();
+
+  // When private chat is set from outside (e.g., profile page), open panel and show it
+  useEffect(() => {
+    if (activePrivateChat) {
+      setIsOpen(true);
+      setActiveView("private");
+    }
+  }, [activePrivateChat]);
 
   const following = userProfile?.following ?? [];
+
+  const handleBack = () => {
+    setActiveView("list");
+    if (activeView === "private") setActivePrivateChat(null);
+  };
 
   return (
     <>
@@ -170,7 +205,7 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
       {isOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] transition-opacity duration-300"
-          onClick={() => setIsOpen(false)}
+          onClick={() => { setIsOpen(false); setActiveView("list"); }}
         />
       )}
 
@@ -182,68 +217,105 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
-          <button
-            onClick={() => setIsOpen(false)}
-            className="rounded-lg p-1 text-slate-500 transition hover:bg-white/10 hover:text-white"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
+          {activeView !== "list" ? (
+            <button
+              onClick={handleBack}
+              className="rounded-lg p-1 text-slate-500 transition hover:bg-white/10 hover:text-white"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          ) : (
+            <div className="w-7" />
+          )}
           <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-cyan-200/70">
-            Communications
+            {activeView === "global" ? "Chat Global" : activeView === "room" ? "Chat Room" : activeView === "private" ? (activePrivateChat?.username || "Message") : "Messages"}
           </h2>
           <button
-            onClick={() => setIsOpen(false)}
+            onClick={() => { setIsOpen(false); setActiveView("list"); }}
             className="rounded-lg p-1 text-slate-500 transition hover:bg-white/10 hover:text-white"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Chat body (stacked) */}
+        {/* Body */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          
-          {/* Section: Chat Global */}
-          <div className="flex flex-1 flex-col overflow-hidden border-b border-white/[0.06]">
-            <div className="bg-slate-900/50 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-cyan-400">
-              Chat Global
-            </div>
-            <GlobalChatInline />
-          </div>
-
-          {/* Section: Chat de Room */}
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <div className="bg-slate-900/50 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-amber-400">
-              Chat de Room
-            </div>
-            {roomId ? (
-              <div className="flex-1 overflow-hidden flex flex-col">
-                <RoomChat roomId={roomId} />
+          {activeView === "list" && (
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {/* Conversations */}
+              <div className="space-y-1.5">
+                <ConversationItem
+                  icon={<Globe className="h-5 w-5 text-cyan-400" />}
+                  label="Chat Global"
+                  sublabel="Discuter avec tous les joueurs"
+                  color="bg-cyan-400/10"
+                  onClick={() => setActiveView("global")}
+                />
+                {roomId && (
+                  <ConversationItem
+                    icon={<Hash className="h-5 w-5 text-amber-400" />}
+                    label="Chat de Room"
+                    sublabel="Discussion de la partie en cours"
+                    color="bg-amber-400/10"
+                    onClick={() => setActiveView("room")}
+                  />
+                )}
               </div>
-            ) : (
-              <div className="flex flex-1 items-center justify-center text-xs text-slate-600 px-4 text-center">
-                Rejoignez une partie pour discuter avec les autres joueurs
-              </div>
-            )}
-          </div>
 
+              {/* Suggestions */}
+              {following.length > 0 && (
+                <div className="mt-4">
+                  <div className="mb-2 flex items-center gap-1.5 px-1">
+                    <UsersIcon className="h-3.5 w-3.5 text-slate-500" />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">
+                      Suggestions
+                    </span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {following.map((uid) => (
+                      <FriendSuggestionRow
+                        key={uid}
+                        uid={uid}
+                        onClick={() => {
+                          getUserProfile(uid).then(p => {
+                            if (p) {
+                              setActivePrivateChat({ uid: p.uid, username: p.username });
+                              setActiveView("private");
+                            }
+                          });
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeView === "global" && <GlobalChatInline />}
+
+          {activeView === "room" && roomId && (
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <RoomChat roomId={roomId} />
+            </div>
+          )}
+
+          {activeView === "room" && !roomId && (
+            <div className="flex flex-1 items-center justify-center text-xs text-slate-600 px-4 text-center">
+              Rejoignez une partie pour discuter
+            </div>
+          )}
+
+          {activeView === "private" && activePrivateChat && (
+            <div className="flex flex-1 items-center justify-center text-xs text-slate-500 px-4 text-center">
+              <div>
+                <p className="text-base mb-2">💬</p>
+                <p>Messages privés avec <strong className="text-cyan-300">{activePrivateChat.username}</strong></p>
+                <p className="mt-1 text-slate-600">Fonctionnalité à venir</p>
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* Friend suggestions */}
-        {following.length > 0 && (
-          <div className="border-t border-white/[0.06] px-4 py-3">
-            <div className="mb-2 flex items-center gap-1.5">
-              <UsersIcon className="h-3.5 w-3.5 text-slate-500" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">
-                Suggestions
-              </span>
-            </div>
-            <div className="max-h-28 space-y-0.5 overflow-y-auto scrollbar-thin">
-              {following.map((uid) => (
-                <FriendSuggestionRow key={uid} uid={uid} />
-              ))}
-            </div>
-          </div>
-        )}
       </aside>
     </>
   );

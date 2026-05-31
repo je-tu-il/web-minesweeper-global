@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { ref as rtdbRef, set, remove, onValue, onDisconnect } from "firebase/database";
+import { rtdb } from "@/lib/firebase";
 import { useParams, Link } from "react-router-dom";
 import { subscribeRoom, addAchievements } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,6 +15,7 @@ export default function Spectate() {
   const { userProfile, refreshProfile } = useAuth();
   const [room, setRoom] = useState<Room | null>(null);
   const [timer, setTimer] = useState(0);
+  const [spectatorCount, setSpectatorCount] = useState(0);
 
   // Subscribe to room
   useEffect(() => {
@@ -24,6 +27,25 @@ export default function Spectate() {
       unsub();
     };
   }, [roomId]);
+
+  // Track spectator presence
+  useEffect(() => {
+    if (!roomId || !userProfile) return;
+    const myRef = rtdbRef(rtdb, `liveRoom/${roomId}/spectators/${userProfile.uid}`);
+    set(myRef, { username: userProfile.username, joinedAt: Date.now() });
+    onDisconnect(myRef).remove();
+
+    // Listen to spectator count
+    const specRef = rtdbRef(rtdb, `liveRoom/${roomId}/spectators`);
+    const unsub = onValue(specRef, (snap) => {
+      setSpectatorCount(snap.exists() ? Object.keys(snap.val()).length : 0);
+    });
+
+    return () => {
+      remove(myRef).catch(() => {});
+      unsub();
+    };
+  }, [roomId, userProfile]);
 
   // Unlock "Voyeur" achievement
   useEffect(() => {
@@ -71,10 +93,20 @@ export default function Spectate() {
   // Reconstruct board state for a single player
   const getPlayerBoardState = (p: RoomPlayer) => {
     let base = createEmptyGame(room.gridConfig);
+    
+    // Rebuild the board with the same seed
     if (room.mode === "duel") {
       base = generateDuelBoard(room.gridConfig, room.seed);
     } else if (room.firstClick) {
       base = generateSafeBoardSeeded(base, room.firstClick.x, room.firstClick.y, room.seed);
+    } else {
+      // No firstClick yet = game hasn't started, show empty board
+      return {
+        cells: base.cells,
+        config: room.gridConfig,
+        result: "playing" as const,
+        explodedCellId: undefined,
+      };
     }
 
     const revealedSet = new Set(p.revealedCells || []);
@@ -83,8 +115,8 @@ export default function Spectate() {
 
     const cells = base.cells.map((cell) => ({
       ...cell,
-      status: revealedSet.has(cell.id) ? ("revealed" as const) : cell.status,
-      mark: flaggedSet.has(cell.id) ? ("flag" as const) : questionSet.has(cell.id) ? ("question" as const) : cell.mark,
+      status: revealedSet.has(cell.id) ? ("revealed" as const) : ("hidden" as const),
+      mark: flaggedSet.has(cell.id) ? ("flag" as const) : questionSet.has(cell.id) ? ("question" as const) : null,
     }));
 
     const safeCells = cells.filter((c) => !c.hasMine);
@@ -117,9 +149,14 @@ export default function Spectate() {
             <ArrowLeft className="h-4 w-4" />
             Retour
           </Link>
-          <div className="flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-1.5 text-sm font-bold text-cyan-200">
+          <div className="flex items-center gap-3 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-1.5 text-sm font-bold text-cyan-200">
             <Eye className="h-4 w-4" />
             Mode Spectateur
+            {spectatorCount > 0 && (
+              <span className="flex items-center gap-1 rounded-full bg-cyan-300/20 px-2 py-0.5 text-xs">
+                👀 {spectatorCount}
+              </span>
+            )}
           </div>
         </div>
 

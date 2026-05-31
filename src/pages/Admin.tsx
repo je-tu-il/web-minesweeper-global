@@ -476,7 +476,15 @@ const Admin = () => {
                       <span className="text-xs text-slate-400">{room.status}</span>
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
-                      ID: {room.roomId.slice(0, 8)}... | Joueurs: {Object.keys(room.players || {}).length}
+                      ID: {room.roomId.slice(0, 8)}...
+                    </p>
+                    {room.createdAt && (
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Créée le : {new Date(room.createdAt).toLocaleString()}
+                      </p>
+                    )}
+                    <p className="text-xs text-cyan-200/80 mt-1">
+                      Joueurs: {Object.values(room.players || {}).map(p => p.username).join(", ") || "Aucun"}
                     </p>
                   </div>
                   <button

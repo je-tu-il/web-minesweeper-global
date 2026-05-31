@@ -96,6 +96,12 @@ export function LobbyPanel() {
 
   const handleDelete = async (roomId: string) => {
     try {
+      // If deleting the currently active room, go back to lobby
+      const currentRoomId = useUiStore.getState().selectedRoomId;
+      if (currentRoomId === roomId) {
+        setSelectedRoomId(null);
+        setActivePanel("lobby");
+      }
       await deleteRoom(roomId);
     } catch (e) {
       toast.error("Impossible de supprimer la partie (Permissions insuffisantes ?)");
@@ -176,16 +182,18 @@ export function LobbyPanel() {
                 <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-auto">
                   {(canJoin || isInRoom) && (
                     <button
-                      onClick={() => isInRoom ? null : handleJoin(room)}
-                      disabled={isInRoom}
+                      onClick={() => handleJoin(room)}
                       className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
                         isInRoom
-                          ? "border-slate-500/20 bg-slate-500/10 text-slate-500 cursor-not-allowed"
+                          ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20"
                           : "border-cyan-300/20 bg-cyan-300/10 text-cyan-200 hover:bg-cyan-300/20"
                       }`}
                     >
                       {isInRoom ? (
-                        "Reprendre"
+                        <span className="flex items-center gap-1">
+                          <LogIn className="h-3 w-3" />
+                          Reprendre
+                        </span>
                       ) : (
                         <span className="flex items-center gap-1">
                           <LogIn className="h-3 w-3" />

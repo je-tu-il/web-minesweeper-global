@@ -1,9 +1,10 @@
 import { onValue, push, ref, serverTimestamp, set } from "firebase/database";
-import { Send } from "lucide-react";
+import { Send, Users } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { rtdb } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
-import type { ChatMessage } from "@/types";
+import { subscribeRoom } from "@/lib/firestore";
+import type { ChatMessage, Room } from "@/types";
 
 interface RoomChatProps {
   roomId: string;
@@ -11,11 +12,16 @@ interface RoomChatProps {
 
 export function RoomChat({ roomId }: RoomChatProps) {
   const { user, userProfile } = useAuth();
+  const [room, setRoom] = useState<Room | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const chatRef = useMemo(() => ref(rtdb, `liveRoom/${roomId}/chat`), [roomId]);
+
+  useEffect(() => {
+    return subscribeRoom(roomId, setRoom);
+  }, [roomId]);
 
   // Écoute les messages en temps réel
   useEffect(() => {
@@ -70,6 +76,12 @@ export function RoomChat({ roomId }: RoomChatProps) {
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-cyan-200/70">Chat de room</p>
           <h2 className="text-lg font-semibold text-white">Radio tactique</h2>
+          {room && (
+            <p className="mt-1 flex items-center gap-1 text-[10px] text-slate-400">
+              <Users className="h-3 w-3" />
+              {Object.values(room.players || {}).map(p => p.username).join(", ")}
+            </p>
+          )}
         </div>
         <span className="rounded-full bg-emerald-400/15 px-2.5 py-1 text-xs font-medium text-emerald-200">live</span>
       </div>
