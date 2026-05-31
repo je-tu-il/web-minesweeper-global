@@ -39,6 +39,14 @@ const Index = () => {
   const [spectatorCount, setSpectatorCount] = useState(0);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
 
+  // Derived state
+  const room = roomRef.current;
+  const isInGame = activePanel === "game" && selectedRoomId;
+  const isMyTurn = !room || room.mode !== "turn-based" || room.turn === userProfile?.uid;
+  const opponentInfo = room
+    ? Object.values(room.players || {}).find((p) => p.uid !== userProfile?.uid)
+    : null;
+
   // Timer
   useEffect(() => {
     if (isTimerRunning) {
@@ -509,12 +517,6 @@ const Index = () => {
   }
 
   // ── Logged in ──
-  const room = roomRef.current;
-  const isInGame = activePanel === "game" && selectedRoomId;
-  const isMyTurn = !room || room.mode !== "turn-based" || room.turn === userProfile.uid;
-  const opponentInfo = room
-    ? Object.values(room.players || {}).find((p) => p.uid !== userProfile.uid)
-    : null;
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#03070c] text-slate-100">

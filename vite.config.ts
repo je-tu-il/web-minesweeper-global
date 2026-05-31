@@ -1,5 +1,5 @@
 import path from "path";
-
+import circleDependency from "vite-plugin-circular-dependency";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
@@ -12,7 +12,13 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
-  plugins: [react()],
+  plugins: [
+    react(),
+    circleDependency({
+        exclude: /node_modules/,
+        include: /src/,
+    })
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
