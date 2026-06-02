@@ -10,6 +10,7 @@ import { LobbyPanel } from "@/components/LobbyPanel";
 import { RoomChat } from "@/components/RoomChat";
 
 import { CreateRoomModal } from "@/components/CreateRoomModal";
+import { UsernameModal } from "@/components/UsernameModal";
 import { PlayerStats } from "@/components/PlayerStats";
 import { Leaderboard } from "@/components/Leaderboard";
 import { MiniBoard } from "@/components/MiniBoard";
