@@ -57,13 +57,15 @@ export async function addGameToHistory(uid: string, room: Room, game: any, time:
   
   // Update stats
   const stats = { ...user.stats };
-  if (game.result === "won") {
-    stats.totalWins++;
-    stats.winStreak++;
-    if (stats.winStreak > stats.bestWinStreak) stats.bestWinStreak = stats.winStreak;
-  } else if (game.result === "lost") {
-    stats.totalLosses++;
-    stats.winStreak = 0;
+  if (room.mode === "solo") {
+    if (game.result === "won") {
+      stats.totalWins++;
+      stats.winStreak++;
+      if (stats.winStreak > stats.bestWinStreak) stats.bestWinStreak = stats.winStreak;
+    } else if (game.result === "lost") {
+      stats.totalLosses++;
+      stats.winStreak = 0;
+    }
   }
   stats.playTime = (stats.playTime || 0) + time;
   

@@ -46,7 +46,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       mode: "solo",
       isTrap,
       timer: 0,
-      isTimerRunning: true,
+      isTimerRunning: false,
     });
   },
 
@@ -56,7 +56,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       mode: "duel",
       isTrap,
       timer: 0,
-      isTimerRunning: true,
+      isTimerRunning: false,
     });
   },
 
@@ -66,7 +66,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       mode: "turn-based",
       isTrap,
       timer: 0,
-      isTimerRunning: true,
+      isTimerRunning: false,
     });
   },
 
@@ -76,25 +76,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
       mode: "coop",
       isTrap,
       timer: 0,
-      isTimerRunning: true,
+      isTimerRunning: false,
     });
   },
 
   handleReveal: (cellId) => {
-    const { game, isTrap } = get();
+    const { game, isTrap, isTimerRunning } = get();
     const newGame = revealCell(game, cellId, isTrap);
     if (newGame.result !== "playing") {
       set({ game: newGame, isTimerRunning: false });
     } else {
-      set({ game: newGame });
+      set({ game: newGame, isTimerRunning: true });
     }
     return newGame;
   },
 
   handleFlag: (cellId) => {
-    const { game } = get();
+    const { game, isTimerRunning } = get();
     const newGame = cycleMark(game, cellId);
-    set({ game: newGame });
+    set({ game: newGame, isTimerRunning: true });
     return newGame;
   },
 

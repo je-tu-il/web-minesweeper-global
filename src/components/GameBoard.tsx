@@ -9,7 +9,6 @@ interface GameBoardProps {
   onCellRightClick: (cellId: string) => void;
   disabled?: boolean;
   isSpectator?: boolean;
-  isFocusMode?: boolean;
   customCells?: Cell[];
   customConfig?: GridConfig;
   customResult?: GameResult;
@@ -99,7 +98,6 @@ export function GameBoard({
   onCellRightClick,
   disabled = false,
   isSpectator = false,
-  isFocusMode = false,
   customCells,
   customConfig,
   customResult,
@@ -136,7 +134,7 @@ export function GameBoard({
       for (const entry of entries) {
         const availableWidth = entry.contentRect.width;
         // In focus mode, we also care about viewport height roughly
-        const availableHeight = isFocusMode ? window.innerHeight - 150 : Infinity;
+        const availableHeight = Infinity;
         
         // gap = 2px
         const boardWidth = config.width * cellSize + (config.width - 1) * 2;
@@ -150,11 +148,11 @@ export function GameBoard({
     });
     observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, [config.width, config.height, cellSize, isFocusMode]);
+  }, [config.width, config.height, cellSize]);
 
   return (
     <section 
-      className={`rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/40 backdrop-blur-xl w-full ${isFocusMode ? "overflow-hidden" : ""}`}
+      className={`rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/40 backdrop-blur-xl w-full`}
     >
       {/* Stats bar */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -204,7 +202,7 @@ export function GameBoard({
         )}
 
         <div
-          className={`mx-auto transition-transform duration-200 ${isFocusMode ? "origin-center" : "origin-top"}`}
+          className="mx-auto transition-transform duration-200 origin-top"
           style={{
             display: "grid",
             gridTemplateColumns: `repeat(${config.width}, ${cellSize}px)`,

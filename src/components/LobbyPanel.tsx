@@ -58,7 +58,7 @@ export function LobbyPanel() {
       if (room.status === "playing" || room.status === "finished") {
         restoreFromSync(
           room.gridConfig,
-          room.seed,
+          room.mode === "duel" && room.duelMode === "separate" ? room.seed + (room.createdBy === userProfile.uid ? 0 : 1) : room.seed,
           room.mode,
           room.players[userProfile.uid]?.revealedCells || [],
           room.players[userProfile.uid]?.flaggedCells || [],
@@ -69,8 +69,13 @@ export function LobbyPanel() {
       } else {
         // En attente
         const trap = isBanned;
-        if (room.mode === "duel") initDuelGame(room.gridConfig, room.seed, trap);
-        else initTurnBasedGame(room.gridConfig, trap);
+        if (room.mode === "duel") {
+          initDuelGame(room.gridConfig, room.duelMode === "separate" ? room.seed + (room.createdBy === userProfile.uid ? 0 : 1) : room.seed, trap);
+        } else if (room.mode === "coop") {
+          useGameStore.getState().initCoopGame(room.gridConfig, room.seed, trap);
+        } else {
+          initTurnBasedGame(room.gridConfig, trap);
+        }
       }
       setSelectedRoomId(room.roomId);
       setActivePanel("game");
@@ -89,8 +94,13 @@ export function LobbyPanel() {
     });
 
     const trap = isBanned;
-    if (room.mode === "duel") initDuelGame(room.gridConfig, room.seed, trap);
-    else initTurnBasedGame(room.gridConfig, trap);
+    if (room.mode === "duel") {
+      initDuelGame(room.gridConfig, room.duelMode === "separate" ? room.seed + (room.createdBy === userProfile.uid ? 0 : 1) : room.seed, trap);
+    } else if (room.mode === "coop") {
+      useGameStore.getState().initCoopGame(room.gridConfig, room.seed, trap);
+    } else {
+      initTurnBasedGame(room.gridConfig, trap);
+    }
 
     setSelectedRoomId(room.roomId);
     setActivePanel("game");
@@ -186,26 +196,15 @@ export function LobbyPanel() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-auto">
-          {(canJoin || isInRoom) && (
+          {canJoin && (
             <button
               onClick={() => handleJoin(room)}
-              className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
-                isInRoom
-                  ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20"
-                  : "border-cyan-300/20 bg-cyan-300/10 text-cyan-200 hover:bg-cyan-300/20"
-              }`}
+              className="rounded-lg border px-2.5 py-1.5 text-xs font-medium transition border-cyan-300/20 bg-cyan-300/10 text-cyan-200 hover:bg-cyan-300/20"
             >
-              {isInRoom ? (
-                <span className="flex items-center gap-1">
-                  <LogIn className="h-3 w-3" />
-                  Reprendre
-                </span>
-              ) : (
-                <span className="flex items-center gap-1">
-                  <LogIn className="h-3 w-3" />
-                  Rejoindre
-                </span>
-              )}
+              <span className="flex items-center gap-1">
+                <LogIn className="h-3 w-3" />
+                Rejoindre
+              </span>
             </button>
           )}
           {isCreator ? (

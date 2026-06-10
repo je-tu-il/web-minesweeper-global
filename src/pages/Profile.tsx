@@ -462,7 +462,7 @@ export default function Profile() {
 
         {activeTab === "records" && (() => {
           const getBestTime = (diff: string) => {
-            const wins = (profile.history || []).filter(g => g.result === "won" && g.difficulty === diff);
+            const wins = (profile.history || []).filter(g => g.result === "won" && g.difficulty === diff && g.mode === "solo");
             if (wins.length === 0) return null;
             return Math.min(...wins.map(g => g.time));
           };

@@ -30,7 +30,10 @@ export function RoomChat({ roomId }: RoomChatProps) {
     const unsubscribe = onValue(chatRef, (snapshot) => {
       const value = snapshot.val() as Record<string, Omit<ChatMessage, "id">> | null;
       const nextMessages = Object.entries(value ?? {})
-        .map(([id, message]) => ({ id, ...message, timestamp: Number(message.timestamp ?? Date.now()) }))
+        .map(([id, message]) => {
+          const ts = typeof message.timestamp === 'number' ? message.timestamp : Date.now();
+          return { id, ...message, timestamp: ts };
+        })
         .sort((a, b) => a.timestamp - b.timestamp)
         .slice(-50);
       setMessages(nextMessages);

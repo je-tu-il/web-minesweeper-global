@@ -16,7 +16,7 @@ import { Leaderboard } from "@/components/Leaderboard";
 import { MiniBoard } from "@/components/MiniBoard";
 import { AchievementToast } from "@/components/AchievementToast";
 import { ChatPanel } from "@/components/ChatPanel";
-import { Bomb, Swords, Clock, Crosshair, MessageCircle, LayoutGrid, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Flag } from "lucide-react";
+import { Bomb, Swords, Clock, Crosshair, MessageCircle, LayoutGrid, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Flag, Zap } from "lucide-react";
 import { toast } from "sonner";
 import type { Room } from "@/types";
 import { rtdb } from "@/lib/firebase";
@@ -34,7 +34,6 @@ const Index = () => {
   const gameBoardRef = useRef<HTMLDivElement>(null);
 
   const [newAchievements, setNewAchievements] = useState<string[]>([]);
-  const [isFocusMode, setIsFocusMode] = useState(false);
   const [isLeftOpen, setIsLeftOpen] = useState(true);
   const [isRightOpen, setIsRightOpen] = useState(true);
   const [spectatorCount, setSpectatorCount] = useState(0);
@@ -115,9 +114,11 @@ const Index = () => {
         updateRoom(room.roomId, { status: "playing" });
         // Initialiser le jeu pour le joueur qui était en attente
         if (room.mode === "duel") {
-          initDuelGame(room.gridConfig, room.seed, isBanned);
+          initDuelGame(room.gridConfig, room.duelMode === "separate" ? room.seed + (room.createdBy === userProfile.uid ? 0 : 1) : room.seed, isBanned);
         } else if (room.mode === "turn-based") {
           initTurnBasedGame(room.gridConfig, isBanned);
+        } else if (room.mode === "coop") {
+          useGameStore.getState().initCoopGame(room.gridConfig, room.seed, isBanned);
         }
       }
 
@@ -130,7 +131,7 @@ const Index = () => {
         if ((p?.revealedCells && p.revealedCells.length > 0) || (isSharedBoard && room.firstClick)) {
           useGameStore.getState().restoreFromSync(
             room.gridConfig,
-            room.seed,
+            room.mode === "duel" && room.duelMode === "separate" ? room.seed + (room.createdBy === userProfile.uid ? 0 : 1) : room.seed,
             room.mode,
             p?.revealedCells || [],
             p.flaggedCells || [],
@@ -304,6 +305,7 @@ const Index = () => {
 
   const handleRefuseRematch = () => {
     if (selectedRoomId && userProfile) {
+      updateRoom(selectedRoomId, { status: "waiting", rematchProposal: null }).catch(console.error);
       leaveRoom(selectedRoomId, userProfile.uid).catch(console.error);
     }
     handleBackToLobby();
@@ -414,7 +416,7 @@ const Index = () => {
     if (room.mode === "solo") {
       initSoloGame(room.gridConfig, newSeed, isBanned);
     } else if (room.mode === "duel") {
-      initDuelGame(room.gridConfig, newSeed, isBanned);
+      initDuelGame(room.gridConfig, room.duelMode === "separate" ? newSeed + (room.createdBy === userProfile.uid ? 0 : 1) : newSeed, isBanned);
     } else if (room.mode === "coop") {
       useGameStore.getState().initCoopGame(room.gridConfig, newSeed, isBanned);
     } else {
@@ -524,8 +526,8 @@ const Index = () => {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(34,211,238,0.15),transparent_28%),radial-gradient(circle_at_84%_18%,rgba(245,158,11,0.10),transparent_25%)]" />
       <div className="pointer-events-none fixed inset-0 opacity-[0.04] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:44px_44px]" />
 
-      <div className={`relative mx-auto px-4 py-4 sm:px-6 ${isFocusMode ? "max-w-full" : "max-w-7xl"}`}>
-        {!isFocusMode && <AuthBar />}
+      <div className={`relative mx-auto px-4 py-4 sm:px-6 max-w-7xl`}>
+        <AuthBar />
         {newAchievements.length > 0 && (
           <AchievementToast achievementIds={newAchievements} onDone={() => setNewAchievements([])} />
         )}
@@ -582,10 +584,9 @@ const Index = () => {
           </button>
         </div>
 
-        <div className={`grid gap-4 ${isFocusMode ? "grid-cols-1" : `lg:grid-cols-[${isLeftOpen ? "320px" : "auto"}_minmax(0,1fr)]`}`}>
+        <div className={`grid gap-4 lg:grid-cols-[${isLeftOpen ? "320px" : "auto"}_minmax(0,1fr)]`}>
           {/* Left: Lobby */}
-          {!isFocusMode && (
-            <aside className={`space-y-4 ${activePanel !== "lobby" ? "hidden lg:block" : ""}`}>
+          <aside className={`space-y-4 ${activePanel !== "lobby" ? "hidden lg:block" : ""}`}>
               {isLeftOpen ? (
                 <>
                   <LobbyPanel />
@@ -598,7 +599,6 @@ const Index = () => {
                 </div>
               )}
             </aside>
-          )}
 
           {/* Center: Game */}
           <div className={`min-w-0 ${activePanel !== "game" && activePanel !== "lobby" ? "hidden lg:block" : activePanel === "lobby" ? "hidden lg:block" : ""}`}>
@@ -649,16 +649,6 @@ const Index = () => {
                       </div>
                     )}
                     
-                    {/* Focus Mode Toggle */}
-                    <div className="ml-auto flex items-center gap-2">
-                      <button
-                        onClick={() => setIsFocusMode(!isFocusMode)}
-                        className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
-                        title={isFocusMode ? "Quitter le mode focus" : "Mode focus"}
-                      >
-                        {isFocusMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                      </button>
-                    </div>
                   </div>
                 )}
 
@@ -678,13 +668,12 @@ const Index = () => {
                     <p className="mt-1 text-sm text-slate-500">Partagez le lien de votre room</p>
                   </div>
                 ) : (
-                  <div ref={gameBoardRef} className={`flex flex-col items-center gap-6 xl:flex-row xl:items-start xl:justify-center min-w-0 max-w-full ${isFocusMode ? "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" : ""}`}>
+                  <div ref={gameBoardRef} className={`flex flex-col items-center gap-6 xl:flex-row xl:items-start xl:justify-center min-w-0 max-w-full`}>
                     <div className="min-w-0 max-w-full">
                       <GameBoard
                         onCellClick={onCellClick}
                         onCellRightClick={onCellRightClick}
                         disabled={!isMyTurn}
-                        isFocusMode={isFocusMode}
                       />
                     </div>
                     {/* Opponent Progress in Duel (Shared) */}

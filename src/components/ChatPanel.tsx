@@ -35,7 +35,10 @@ function GlobalChatInline() {
     const unsubscribe = onValue(chatRef, (snapshot) => {
       const value = snapshot.val() as Record<string, Omit<ChatMessage, "id">> | null;
       const msgs = Object.entries(value ?? {})
-        .map(([id, m]) => ({ id, ...m, timestamp: Number(m.timestamp ?? Date.now()) }))
+        .map(([id, m]) => {
+          const ts = typeof m.timestamp === 'number' ? m.timestamp : Date.now();
+          return { id, ...m, timestamp: ts };
+        })
         .sort((a, b) => a.timestamp - b.timestamp)
         .slice(-80);
       setMessages(msgs);
@@ -136,7 +139,10 @@ function PrivateChatInline({ targetUser }: { targetUser: { uid: string, username
     const unsubscribe = onValue(chatRef, (snapshot) => {
       const value = snapshot.val() as Record<string, Omit<ChatMessage, "id">> | null;
       const msgs = Object.entries(value ?? {})
-        .map(([id, m]) => ({ id, ...m, timestamp: Number(m.timestamp ?? Date.now()) }))
+        .map(([id, m]) => {
+          const ts = typeof m.timestamp === 'number' ? m.timestamp : Date.now();
+          return { id, ...m, timestamp: ts };
+        })
         .sort((a, b) => a.timestamp - b.timestamp)
         .slice(-80);
       setMessages(msgs);
@@ -292,13 +298,24 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
     const unsub = onValue(unreadRef, (snap) => {
       if (snap.exists()) {
         const data = snap.val();
-        setHasUnread(Object.values(data).some(v => v === true));
+        const hasNewUnread = Object.values(data).some(v => v === true);
+        
+        setHasUnread((prev) => {
+          if (!prev && hasNewUnread && !isOpen) {
+            import("sonner").then(module => {
+              module.toast("Nouveau message privé !", {
+                icon: "💬"
+              });
+            });
+          }
+          return hasNewUnread;
+        });
       } else {
         setHasUnread(false);
       }
     });
     return unsub;
-  }, [userProfile?.uid]);
+  }, [userProfile?.uid, isOpen]);
 
   // When private chat is set from outside (e.g., profile page), open panel and show it
   useEffect(() => {
@@ -317,10 +334,10 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
 
   return (
     <>
-      {/* Toggle button — fixed right edge */}
+      {/* Toggle button — fixed top right edge */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed right-4 top-1/2 z-40 -translate-y-1/2 rounded-xl border border-cyan-300/25 bg-cyan-300/10 p-2.5 text-cyan-200 shadow-lg shadow-cyan-500/10 backdrop-blur transition hover:bg-cyan-300/20 relative"
+        className="fixed right-6 top-4 z-40 rounded-xl border border-cyan-300/25 bg-cyan-300/10 p-2.5 text-cyan-200 shadow-lg shadow-cyan-500/10 backdrop-blur transition hover:bg-cyan-300/20"
         title="Chat"
       >
         <MessageCircle className="h-5 w-5" />
@@ -334,8 +351,8 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
 
       {/* Slide panel */}
       <aside
-        className={`fixed bottom-24 right-6 z-50 flex h-[500px] max-h-[80vh] w-80 flex-col rounded-2xl border border-white/10 bg-[#060e1e]/95 shadow-2xl shadow-cyan-900/20 backdrop-blur-xl transition-all duration-300 ease-out ${
-          isOpen ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0 pointer-events-none"
+        className={`fixed top-20 right-6 z-50 flex h-[500px] max-h-[80vh] w-80 flex-col rounded-2xl border border-white/10 bg-[#060e1e]/95 shadow-2xl shadow-cyan-900/20 backdrop-blur-xl transition-all duration-300 ease-out ${
+          isOpen ? "translate-y-0 opacity-100" : "-translate-y-8 opacity-0 pointer-events-none"
         }`}
       >
         {/* Header */}

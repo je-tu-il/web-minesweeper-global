@@ -50,17 +50,19 @@ export function checkAchievements(
 
   const isDefaultMap = matchesPreset("beginner") || matchesPreset("intermediate") || matchesPreset("expert");
 
-  if (matchesPreset("beginner")) unlock("win_beginner");
-  if (matchesPreset("intermediate")) unlock("win_intermediate");
-  if (matchesPreset("expert")) unlock("win_expert");
+  if (mode === "solo") {
+    if (matchesPreset("beginner")) unlock("win_beginner");
+    if (matchesPreset("intermediate")) unlock("win_intermediate");
+    if (matchesPreset("expert")) unlock("win_expert");
 
-  // Custom hard : grille 25×25+ avec 100+ mines
-  if (config.width >= 25 && config.height >= 25 && config.mines >= 100) {
-    unlock("win_custom_hard");
+    // Custom hard : grille 25×25+ avec 100+ mines
+    if (config.width >= 25 && config.height >= 25 && config.mines >= 100) {
+      unlock("win_custom_hard");
+    }
   }
 
-  // ── Seuls les maps par défaut débloquent les autres succès (Puriste, Speed, Séries) ──
-  if (isDefaultMap) {
+  // ── Seuls les maps par défaut en mode SOLO débloquent les autres succès (Puriste, Speed, Séries) ──
+  if (isDefaultMap && mode === "solo") {
     // ── Puriste — gagner sans drapeau ──
     if (!gameState.flagsUsed) {
       unlock("no_flag");
@@ -84,13 +86,15 @@ export function checkAchievements(
   }
 
   // ── Sweep ──
-  const revealedCount = gameState.cells.filter(c => c.status === "revealed" && !c.hasMine).length;
-  if (revealedCount >= 50) unlock("sweep");
+  if (mode === "solo") {
+    const revealedCount = gameState.cells.filter(c => c.status === "revealed" && !c.hasMine).length;
+    if (revealedCount >= 50) unlock("sweep");
 
-  // ── Total Wins (Marathon & Centurion) ──
-  const totalWins = (profile.stats.totalWins || 0) + 1;
-  if (totalWins >= 50) unlock("win_total_50");
-  if (totalWins >= 100) unlock("win_total_100");
+    // ── Total Wins (Marathon & Centurion) ──
+    const totalWins = (profile.stats.totalWins || 0) + 1;
+    if (totalWins >= 50) unlock("win_total_50");
+    if (totalWins >= 100) unlock("win_total_100");
+  }
 
   // ── Date/Time based (Démineur du Dimanche, Insomniaque) ──
   const now = new Date();
