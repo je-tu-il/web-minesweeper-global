@@ -45,9 +45,10 @@ export function GlobalChat() {
     setText("");
 
     // Succès uwu
-    if (cleanText.toLowerCase().includes("uwu") && userProfile.uid) {
+    if (cleanText.toLowerCase() === "uwu" && userProfile.uid) {
       if (!userProfile.achievements?.includes("mystere_egirl")) {
         await addAchievements(userProfile.uid, ["mystere_egirl"]);
+        return;
       }
     }
 

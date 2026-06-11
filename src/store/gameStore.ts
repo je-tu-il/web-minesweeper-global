@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { GameState, GridConfig, RoomMode } from "@/types";
-import { createEmptyGame, revealCell, cycleMark, generateDuelBoard, generateSafeBoardSeeded } from "@/lib/gameEngine";
+import { createEmptyGame, revealCell, cycleMark, generateDuelBoard, generateSafeBoardSeeded, generatePureLogicBoard } from "@/lib/gameEngine";
 
 interface GameStore {
   game: GameState;
@@ -127,7 +127,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       base = generateDuelBoard(config, seed);
     } else if (firstClick) {
       // Pour les autres modes, on regénère la grille en se basant sur le premier clic !
-      base = generateSafeBoardSeeded(base, firstClick.x, firstClick.y, seed);
+      if (config.pureLogic) {
+        // Need to import generatePureLogicBoard
+        base = generatePureLogicBoard(config, firstClick.x, firstClick.y, seed);
+      } else {
+        base = generateSafeBoardSeeded(base, firstClick.x, firstClick.y, seed);
+      }
       
       const revealedSet = new Set(revealedCells);
       const flaggedSet = new Set(flaggedCells);
@@ -227,3 +232,4 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 }));
+

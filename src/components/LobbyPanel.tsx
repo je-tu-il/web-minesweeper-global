@@ -129,6 +129,11 @@ export function LobbyPanel() {
         executeDelete(roomId, false);
         return;
       }
+
+      if (room.mode === "solo") {
+        setDeletingRoomId(roomId);
+        return;
+      }
       
       try {
         const myStateRef = rtdbRef(rtdb, `liveRoom/${roomId}/state/${userProfile.uid}`);
@@ -284,6 +289,20 @@ export function LobbyPanel() {
       </div>
 
       <div className="space-y-2">
+        {(() => {
+          const myRooms = activeRooms.filter(r => userProfile && r.players && r.players[userProfile.uid] && r.status !== "finished");
+          if (myRooms.length === 0) return null;
+          return (
+            <div className="mb-6">
+              <h3 className="mb-2 text-sm font-bold text-cyan-300 uppercase tracking-wider">Mes parties</h3>
+              <div className="space-y-2">
+                {myRooms.map(room => renderRoom(room))}
+              </div>
+            </div>
+          );
+        })()}
+        
+        <h3 className="mb-2 text-sm font-bold text-slate-400 uppercase tracking-wider">Toutes les parties</h3>
         {activeRooms.length === 0 ? (
           <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-slate-500">
             Aucune partie en cours.
@@ -339,3 +358,4 @@ export function LobbyPanel() {
     </section>
   );
 }
+

@@ -18,7 +18,7 @@ import { Bomb, Swords, Clock, Crosshair, MessageCircle, LayoutGrid, Flag, Zap } 
 import { toast } from "sonner";
 import type { Room } from "@/types";
 import { rtdb } from "@/lib/firebase";
-import { ref as rtdbRef, onValue } from "firebase/database";
+import { ref as rtdbRef, onValue, remove } from "firebase/database";
 import { Link } from "react-router-dom";
 
 const Index = () => {
@@ -36,6 +36,7 @@ const Index = () => {
   const [isRightOpen, setIsRightOpen] = useState(true);
   const [spectatorCount, setSpectatorCount] = useState(0);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
+  const [, setRoomUpdateTick] = useState(0);
 
   // Derived state
   const room = roomRef.current;
@@ -63,6 +64,7 @@ const Index = () => {
     }
     const unsub = subscribeRoom(selectedRoomId, (room) => {
       roomRef.current = room;
+      setRoomUpdateTick(t => t + 1);
 
       if (!room || !userProfile) return;
 
@@ -206,15 +208,15 @@ const Index = () => {
       const currentGameState = useGameStore.getState().game;
 
       // F5 / Refresh : Restore game if we have RTDB state and haven't clicked locally yet
-      if (!currentGameState.firstClickDone && myState?.revealedCells?.length > 0) {
+      if (!currentGameState.firstClickDone && room.firstClick) {
          useGameStore.getState().restoreFromSync(
             room.gridConfig,
             room.mode === "duel" && room.duelMode === "separate" ? room.seed + (room.createdBy === userProfile.uid ? 0 : 1) : room.seed,
             room.mode,
-            myState.revealedCells || [],
-            myState.flaggedCells || [],
-            myState.questionCells || [],
-            myState.explodedCellId,
+            myState?.revealedCells || [],
+            myState?.flaggedCells || [],
+            myState?.questionCells || [],
+            myState?.explodedCellId,
             room.firstClick
           );
       }
@@ -485,6 +487,7 @@ const Index = () => {
       });
 
       updateRoom(selectedRoomId, updates).catch(console.error);
+      remove(rtdbRef(rtdb, "liveRoom//state")).catch(console.error);
     }
 
     if (room.mode === "solo") {
@@ -522,13 +525,14 @@ const Index = () => {
       useGameStore.setState({ game: endedGame, isTimerRunning: false });
       
       addGameToHistory(userProfile.uid, room, endedGame, timer).catch(console.error);
-      if (Object.keys(room.players).length <= 1) {
-        deleteRoom(selectedRoomId!).catch(console.error);
-      } else {
-        leaveRoom(selectedRoomId!, userProfile.uid).catch(console.error);
-      }
       
-      handleBackToLobby();
+      if (room.mode === "solo") {
+        deleteRoom(selectedRoomId!).catch(console.error);
+        handleBackToLobby();
+      } else {
+        const opponentId = Object.keys(room.players).find(id => id !== userProfile.uid);
+        updateRoom(selectedRoomId!, { status: "finished", winner: opponentId }).catch(console.error);
+      }
     }
   };
 
@@ -854,3 +858,8 @@ const Index = () => {
 };
 
 export default Index;
+
+
+
+
+

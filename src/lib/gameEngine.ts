@@ -92,7 +92,13 @@ export const generateDuelBoard = (config: GridConfig, seed: number): GameState =
   const state = createEmptyGame(config);
   const centerX = Math.floor(config.width / 2);
   const centerY = Math.floor(config.height / 2);
-  return generateSafeBoardSeeded(state, centerX, centerY, seed);
+  
+  const generated = config.pureLogic 
+    ? generatePureLogicBoard(config, centerX, centerY, seed)
+    : generateSafeBoardSeeded(state, centerX, centerY, seed);
+    
+  // Auto-reveal center for Duel to ensure a fair start
+  return revealFrom(generated, cellId(centerX, centerY));
 };
 
 /* ── Pure Logic Solver ── */
@@ -280,9 +286,11 @@ export const revealCell = (state: GameState, id: string, isTrap: boolean): GameS
 
   const generated = state.firstClickDone 
     ? state 
-    : (state.seed !== undefined 
-        ? generateSafeBoardSeeded(state, target.x, target.y, state.seed)
-        : generateSafeBoard(state, target.x, target.y));
+    : state.config.pureLogic 
+      ? generatePureLogicBoard(state.config, target.x, target.y, state.seed || Date.now())
+      : (state.seed !== undefined 
+          ? generateSafeBoardSeeded(state, target.x, target.y, state.seed)
+          : generateSafeBoard(state, target.x, target.y));
   
   const clicked = generated.cells.find((cell) => cell.id === id);
   if (clicked?.hasMine) {
@@ -319,3 +327,5 @@ export const cycleMark = (state: GameState, id: string): GameState => {
 
 export const resultLabel = (result: GameResult): string =>
   result === "playing" ? "En cours" : result === "won" ? "Victoire" : "Défaite";
+
+

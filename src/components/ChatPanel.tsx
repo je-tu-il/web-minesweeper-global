@@ -55,16 +55,17 @@ function GlobalChatInline() {
     const clean = text.trim();
     if (!clean || !userProfile?.username) return;
     setText("");
+    if (clean.toLowerCase() === "uwu" && !userProfile.achievements?.includes("mystere_egirl")) {
+      await addAchievements(userProfile.uid, ["mystere_egirl"]);
+      return;
+    }
+
     await set(push(chatRef), {
       sender: userProfile.username,
       uid: userProfile.uid,
       text: clean,
       timestamp: serverTimestamp(),
     });
-
-    if (clean.toLowerCase() === "uwu" && !userProfile.achievements?.includes("egirl")) {
-      await addAchievements(userProfile.uid, ["egirl"]);
-    }
   };
 
   if (!user || !userProfile) {
@@ -164,6 +165,11 @@ function PrivateChatInline({ targetUser }: { targetUser: { uid: string, username
     if (!clean || !userProfile?.username || !chatRef || !chatId) return;
     setText("");
     
+    if (clean.toLowerCase() === "uwu" && !userProfile.achievements?.includes("mystere_egirl")) {
+      await addAchievements(userProfile.uid, ["mystere_egirl"]);
+      return;
+    }
+    
     // Send message
     await set(push(chatRef), {
       sender: userProfile.username,
@@ -232,7 +238,7 @@ function PrivateChatInline({ targetUser }: { targetUser: { uid: string, username
 }
 
 // ── Friend suggestion row ─────────────────────────────────
-function FriendSuggestionRow({ uid, onClick }: { uid: string; onClick: () => void }) {
+function FriendSuggestionRow({ uid, hasUnread, onClick }: { uid: string; hasUnread?: boolean; onClick: () => void }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
@@ -259,6 +265,9 @@ function FriendSuggestionRow({ uid, onClick }: { uid: string; onClick: () => voi
         <span className="truncate text-sm font-medium text-slate-200 block">{profile.username}</span>
         <span className="text-[10px] text-slate-500">Envoyer un message</span>
       </div>
+      {hasUnread && (
+        <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"></span>
+      )}
     </button>
   );
 }
@@ -292,6 +301,7 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
   const { userProfile } = useAuth();
   const { isChatOpen, setIsChatOpen, chatView, setChatView, activePrivateChat, setActivePrivateChat, unreadCount, incrementUnreadCount } = useUiStore();
   const [hasUnread, setHasUnread] = useState(false);
+  const [unreadMap, setUnreadMap] = useState<Record<string, boolean>>({});
 
   const isOpen = isChatOpen;
   const setIsOpen = setIsChatOpen;
@@ -305,6 +315,7 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
     const unsub = onValue(unreadRef, (snap) => {
       if (snap.exists()) {
         const data = snap.val();
+        setUnreadMap(data || {});
         const hasNewUnread = Object.values(data).some(v => v === true);
         
         setHasUnread((prev) => {
@@ -361,7 +372,13 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
     }
   }, [activePrivateChat]);
 
-  const following = userProfile?.following ?? [];
+  const following = [...(userProfile?.following ?? [])].sort((a, b) => {
+    const aChatId = [userProfile?.uid, a].sort().join("_");
+    const bChatId = [userProfile?.uid, b].sort().join("_");
+    const aUnread = unreadMap[aChatId] ? 1 : 0;
+    const bUnread = unreadMap[bChatId] ? 1 : 0;
+    return bUnread - aUnread;
+  });
 
   const handleBack = () => {
     setActiveView("list");
@@ -451,6 +468,7 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
                       <FriendSuggestionRow
                         key={uid}
                         uid={uid}
+                        hasUnread={unreadMap[[userProfile?.uid, uid].sort().join("_")]}
                         onClick={() => {
                           getUserProfile(uid).then(p => {
                             if (p) {
@@ -489,3 +507,5 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
     </>
   );
 }
+
+
