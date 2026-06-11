@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, FormEvent } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { getUserProfile, followUser, unfollowUser, getAllUsers } from "@/lib/firestore";
+import { getUserProfile, followUser, unfollowUser, getAllUsers, addWallPost, subscribeWallPosts, deleteWallPost } from "@/lib/firestore";
 import { useUiStore } from "@/store/uiStore";
-import { Trophy, Swords, Flame, Clock, CalendarDays, X, User, ArrowLeft, UserPlus, UserMinus, Settings, Users, MessageCircle, Shield } from "lucide-react";
+import { Trophy, Swords, Flame, Clock, CalendarDays, X, User, ArrowLeft, UserPlus, UserMinus, Settings, Users, MessageCircle, Shield, Send, Trash2, Zap } from "lucide-react";
 import { ACHIEVEMENTS, TIER_COLORS, GRID_PRESETS, type UserProfile, type GameHistoryEntry } from "@/types";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -11,6 +11,8 @@ import { createEmptyGame, generateDuelBoard } from "@/lib/gameEngine";
 import { toast } from "sonner";
 import { subscribeUserPresence } from "@/lib/firestore";
 import { AreaChart, Area, ResponsiveContainer, YAxis, Tooltip } from "recharts";
+import { updateDoc, doc } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 
 export default function Profile() {
   const { uid } = useParams();
@@ -19,9 +21,13 @@ export default function Profile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [allUsers, setAllUsers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"stats" | "history" | "social" | "records">("stats");
+  const [activeTab, setActiveTab] = useState<"stats" | "history" | "social" | "records" | "wall">("stats");
   const [selectedGame, setSelectedGame] = useState<GameHistoryEntry | null>(null);
   const [isOnline, setIsOnline] = useState(false);
+  const [wallPosts, setWallPosts] = useState<import("@/lib/firestore").WallPost[]>([]);
+  const [wallText, setWallText] = useState("");
+  const [wallSubmitting, setWallSubmitting] = useState(false);
+  const [lowPerfToggling, setLowPerfToggling] = useState(false);
 
   const targetUid = uid || myProfile?.uid;
   const isMe = myProfile?.uid === targetUid;
@@ -44,12 +50,19 @@ export default function Profile() {
     
     load();
     
+    // Subscribe to wall posts
+    let unsubWall: (() => void) | undefined;
+    if (targetUid) {
+      unsubWall = subscribeWallPosts(targetUid, setWallPosts);
+    }
+
     if (targetUid) {
       const unsubPresence = subscribeUserPresence(targetUid, (status) => {
         setIsOnline(status === "online");
       });
-      return () => unsubPresence();
+      return () => { unsubPresence(); unsubWall?.(); };
     }
+    return () => unsubWall?.();
   }, [targetUid, isMe, myProfile]);
 
   if (loading) {
@@ -97,6 +110,46 @@ export default function Profile() {
 
   const isFollowing = myProfile?.following?.includes(profile.uid);
   const { totalWins, totalLosses } = profile.stats || { totalWins: 0, totalLosses: 0 };
+
+  const handleToggleLowPerf = async () => {
+    if (!isMe || !myProfile) return;
+    setLowPerfToggling(true);
+    try {
+      const newVal = !myProfile.lowPerformance;
+      await updateDoc(doc(firestore, "users", myProfile.uid), { lowPerformance: newVal });
+      await refreshProfile();
+      toast.success(newVal ? "Mode basse performance activé" : "Mode performance normale activé");
+    } catch (e) {
+      toast.error("Erreur lors de la mise à jour.");
+    } finally {
+      setLowPerfToggling(false);
+    }
+  };
+
+  const handleWallSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!myProfile || !wallText.trim() || !targetUid) return;
+    setWallSubmitting(true);
+    try {
+      await addWallPost(targetUid, myProfile.uid, myProfile.username, wallText.trim());
+      setWallText("");
+    } catch (e) {
+      toast.error("Impossible de poster sur ce mur.");
+    } finally {
+      setWallSubmitting(false);
+    }
+  };
+
+  const handleDeleteWallPost = async (postId: string) => {
+    if (!targetUid) return;
+    try {
+      await deleteWallPost(targetUid, postId);
+      toast.success("Post supprimé.");
+    } catch (e) {
+      toast.error("Impossible de supprimer ce post.");
+    }
+  };
+
   const winRate = totalWins + totalLosses > 0
     ? Math.round((totalWins / (totalWins + totalLosses)) * 100)
     : 0;
@@ -175,9 +228,24 @@ export default function Profile() {
             )}
             
             {isMe ? (
-            <button onClick={() => setShowUsernameModal(true)} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-5 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.08]">
-              <Settings className="h-4 w-4" /> Modifier
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowUsernameModal(true)} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-5 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.08]">
+                <Settings className="h-4 w-4" /> Modifier
+              </button>
+              <button
+                onClick={handleToggleLowPerf}
+                disabled={lowPerfToggling}
+                title="Mode basse performance (pour les appareils lents)"
+                className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+                  myProfile?.lowPerformance
+                    ? "border-amber-400/30 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20"
+                    : "border-white/10 bg-white/[0.03] text-slate-500 hover:bg-white/[0.08]"
+                }`}
+              >
+                <Zap className="h-4 w-4" />
+                {myProfile?.lowPerformance ? "Perf: Basse" : "Perf: Haute"}
+              </button>
+            </div>
           ) : myProfile && (
             isFollowing ? (
               <button onClick={handleUnfollow} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-5 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.08]">
@@ -217,6 +285,12 @@ export default function Profile() {
             className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "social" ? "bg-cyan-300/10 text-cyan-300" : "text-slate-400 hover:text-white"}`}
           >
             Réseau
+          </button>
+          <button
+            onClick={() => setActiveTab("wall")}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "wall" ? "bg-cyan-300/10 text-cyan-300" : "text-slate-400 hover:text-white"}`}
+          >
+            Mur
           </button>
         </div>
 
@@ -586,6 +660,80 @@ export default function Profile() {
               )}
             </section>
           </div>
+        )}
+
+        {/* ── Wall Tab ── */}
+        {activeTab === "wall" && (
+          <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
+            <h2 className="mb-6 text-lg font-bold text-white flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-cyan-300" /> Mur de {profile.username}
+            </h2>
+
+            {/* Write on wall */}
+            {myProfile && (
+              <form onSubmit={handleWallSubmit} className="mb-6 flex gap-3">
+                <input
+                  type="text"
+                  value={wallText}
+                  onChange={(e) => setWallText(e.target.value)}
+                  maxLength={500}
+                  placeholder={isMe ? "Écris quelque chose sur ton mur..." : `Écris sur le mur de ${profile.username}...`}
+                  className="flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-cyan-400/50 focus:outline-none focus:ring-1 focus:ring-cyan-400/30"
+                />
+                <button
+                  type="submit"
+                  disabled={wallSubmitting || !wallText.trim()}
+                  className="flex items-center gap-2 rounded-xl bg-cyan-300/10 border border-cyan-300/20 px-4 py-2.5 text-sm font-bold text-cyan-200 transition hover:bg-cyan-300/20 disabled:opacity-40"
+                >
+                  <Send className="h-4 w-4" />
+                  Poster
+                </button>
+              </form>
+            )}
+
+            {/* Posts */}
+            {wallPosts.length === 0 ? (
+              <p className="text-slate-500 text-sm">Aucun post sur ce mur. Sois le premier !</p>
+            ) : (
+              <div className="space-y-3">
+                {wallPosts.map((post) => {
+                  const canDelete = myProfile?.uid === post.authorUid || myProfile?.uid === targetUid;
+                  return (
+                    <div key={post.id} className="group relative rounded-2xl border border-white/5 bg-white/[0.03] p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="h-8 w-8 rounded-full bg-cyan-300/20 grid place-items-center text-cyan-300 shrink-0">
+                            <User className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <Link
+                              to={`/profile/${post.authorUid}`}
+                              className="text-sm font-bold text-white hover:text-cyan-300 transition"
+                            >
+                              {post.authorUsername}
+                            </Link>
+                            <p className="text-[10px] text-slate-500">
+                              {formatDistanceToNow(post.timestamp, { addSuffix: true, locale: fr })}
+                            </p>
+                          </div>
+                        </div>
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDeleteWallPost(post.id)}
+                            className="opacity-0 group-hover:opacity-100 transition rounded-lg p-1.5 text-slate-500 hover:bg-red-500/20 hover:text-red-400"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{post.text}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         )}
       </div>
 

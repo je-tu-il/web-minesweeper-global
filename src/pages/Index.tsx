@@ -2,12 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUiStore } from "@/store/uiStore";
 import { useGameStore } from "@/store/gameStore";
-import { subscribeRoom, updateRoom, updateStats, syncGameState, submitScore, addAchievements, addGameToHistory, leaveRoom, deleteRoom } from "@/lib/firestore";
+import { subscribeRoom, updateRoom, syncGameState, submitScore, addAchievements, addGameToHistory, leaveRoom, deleteRoom } from "@/lib/firestore";
 import { checkAchievements } from "@/lib/achievements";
 import { AuthBar } from "@/components/AuthBar";
 import { GameBoard } from "@/components/GameBoard";
 import { LobbyPanel } from "@/components/LobbyPanel";
-import { RoomChat } from "@/components/RoomChat";
 
 import { CreateRoomModal } from "@/components/CreateRoomModal";
 import { UsernameModal } from "@/components/UsernameModal";
@@ -15,8 +14,7 @@ import { PlayerStats } from "@/components/PlayerStats";
 import { Leaderboard } from "@/components/Leaderboard";
 import { MiniBoard } from "@/components/MiniBoard";
 import { AchievementToast } from "@/components/AchievementToast";
-import { ChatPanel } from "@/components/ChatPanel";
-import { Bomb, Swords, Clock, Crosshair, MessageCircle, LayoutGrid, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Flag, Zap } from "lucide-react";
+import { Bomb, Swords, Clock, Crosshair, MessageCircle, LayoutGrid, Flag, Zap } from "lucide-react";
 import { toast } from "sonner";
 import type { Room } from "@/types";
 import { rtdb } from "@/lib/firebase";
@@ -139,6 +137,15 @@ const Index = () => {
             p.explodedCellId,
             room.firstClick
           );
+        } else {
+          // No progress yet, but game is playing. Initialize it locally.
+          if (room.mode === "duel") {
+            initDuelGame(room.gridConfig, room.duelMode === "separate" ? room.seed + (room.createdBy === userProfile.uid ? 0 : 1) : room.seed, isBanned);
+          } else if (room.mode === "coop") {
+            useGameStore.getState().initCoopGame(room.gridConfig, room.seed, isBanned);
+          } else if (room.mode === "turn-based") {
+            initTurnBasedGame(room.gridConfig, isBanned);
+          }
         }
       }
 
@@ -170,6 +177,25 @@ const Index = () => {
           }
         }
       }
+      // Detect opponent left before game started in 1v1 — reset to waiting
+      if (
+        room.mode === "duel" &&
+        room.status === "playing" &&
+        playerCount < room.maxPlayers
+      ) {
+        const anyRevealed = Object.values(room.players || {}).some(
+          (p) => (p.revealedCells?.length ?? 0) > 0
+        );
+        if (!anyRevealed && !room.firstClick) {
+          // Reset room to waiting without penalty
+          updateRoom(room.roomId, { status: "waiting" });
+          // Re-init local game to waiting state
+          initDuelGame(room.gridConfig, room.duelMode === "separate" ? room.seed + (room.createdBy === userProfile.uid ? 0 : 1) : room.seed, isBanned);
+          toast.info("L'adversaire a quitté. En attente d'un nouvel adversaire...");
+          return;
+        }
+      }
+
     });
     return unsub;
   }, [selectedRoomId, userProfile, isBanned, initDuelGame, initTurnBasedGame]);
@@ -305,10 +331,23 @@ const Index = () => {
 
   const handleRefuseRematch = () => {
     if (selectedRoomId && userProfile) {
-      updateRoom(selectedRoomId, { status: "waiting", rematchProposal: null }).catch(console.error);
+      // Refuser la revanche : reset la room pour qu'elle soit disponible dans la liste
+      const room = roomRef.current;
+      const newSeed = room ? room.seed + 1 : Math.floor(Math.random() * 2147483647);
+      // Reset room to waiting with new seed, remove the refusing player
+      updateRoom(selectedRoomId, {
+        status: "waiting",
+        rematchProposal: null,
+        seed: newSeed,
+        winner: null,
+        firstClick: null,
+      }).catch(console.error);
+      // Remove ourselves from the room
       leaveRoom(selectedRoomId, userProfile.uid).catch(console.error);
     }
-    handleBackToLobby();
+    // Return to lobby
+    setSelectedRoomId(null);
+    setActivePanel("lobby");
   };
 
   // Helper pour sync Firestore
@@ -353,6 +392,7 @@ const Index = () => {
       const room = roomRef.current;
       if (room?.mode === "turn-based" && room.turn !== userProfile?.uid) return;
       const newGame = handleFlag(cellId);
+      // Always sync flags to Firestore (important for co-op flag sync!)
       pushGameStateToFirestore(newGame);
     },
     [userProfile, handleFlag],
@@ -652,9 +692,9 @@ const Index = () => {
                   </div>
                 )}
 
-                {/* Spectator Global Counter */}
-                {room && spectatorCount > 0 && (
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 rounded-full border border-white/10 bg-slate-900/80 px-3 py-1.5 text-sm font-semibold text-white shadow-xl backdrop-blur-md">
+                {/* Spectator Global Counter — always visible when > 0 */}
+                {spectatorCount > 0 && (
+                  <div className="flex items-center gap-2 rounded-full border border-white/10 bg-slate-900/80 px-3 py-1.5 text-sm font-semibold text-white shadow-xl backdrop-blur-md">
                     <span className="text-base">👀</span>
                     <span>{spectatorCount}</span>
                   </div>
@@ -674,6 +714,7 @@ const Index = () => {
                         onCellClick={onCellClick}
                         onCellRightClick={onCellRightClick}
                         disabled={!isMyTurn}
+                        lowPerf={userProfile.lowPerformance}
                       />
                     </div>
                     {/* Opponent Progress in Duel (Shared) */}
@@ -774,9 +815,6 @@ const Index = () => {
           This site is powered by Netlify
         </div>
       </div>
-
-      {/* ChatPanel – sliding side panel */}
-      <ChatPanel roomId={selectedRoomId} />
     </main>
   );
 };

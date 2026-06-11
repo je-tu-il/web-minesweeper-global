@@ -6,6 +6,9 @@ import { ref, push, onValue, set, serverTimestamp } from "firebase/database";
 import { Send, X, MessageCircle } from "lucide-react";
 import { format } from "date-fns";
 import type { ChatMessage } from "@/types";
+// NOTE: Ce composant est le chat privé flottant (legacy). Le ChatPanel utilise
+// PrivateChatInline en interne. Les deux utilisent le même path Firebase:
+// privateChats/{chatId}/messages
 
 export function PrivateChat() {
   const { user, userProfile } = useAuth();
@@ -23,7 +26,8 @@ export function PrivateChat() {
 
   const chatRef = useMemo(() => {
     if (!chatId) return null;
-    return ref(rtdb, `privateChats/${chatId}`);
+    // IMPORTANT: Unified path with ChatPanel's PrivateChatInline
+    return ref(rtdb, `privateChats/${chatId}/messages`);
   }, [chatId]);
 
   // Écoute les messages en temps réel
@@ -50,14 +54,27 @@ export function PrivateChat() {
   const sendMessage = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     const cleanText = text.trim();
-    if (!cleanText || !userProfile?.username || !chatRef) return;
+    if (!cleanText || !userProfile?.username || !chatRef || !chatId) return;
     setText("");
     await set(push(chatRef), {
       sender: userProfile.username,
+      uid: user?.uid,
       text: cleanText,
       timestamp: serverTimestamp(),
     });
+    // Marquer comme non-lu pour le destinataire
+    if (activePrivateChat?.uid) {
+      const targetUnreadRef = ref(rtdb, `userPrivateUnread/${activePrivateChat.uid}/${chatId}`);
+      set(targetUnreadRef, true);
+    }
   };
+
+  // Effacer les non-lus quand la conversation est ouverte
+  useEffect(() => {
+    if (!userProfile?.uid || !chatId) return;
+    const myUnreadRef = ref(rtdb, `userPrivateUnread/${userProfile.uid}/${chatId}`);
+    set(myUnreadRef, null);
+  }, [chatId, userProfile?.uid]);
 
   if (!activePrivateChat) return null;
 
@@ -83,7 +100,7 @@ export function PrivateChat() {
         ) : (
           <div className="space-y-4">
             {messages.map((msg) => {
-              const isMe = msg.sender === userProfile?.username;
+              const isMe = (msg as any).uid ? (msg as any).uid === user?.uid : msg.sender === userProfile?.username;
               const date = typeof msg.timestamp === "number" ? new Date(msg.timestamp) : new Date();
 
               return (

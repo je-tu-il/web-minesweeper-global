@@ -2,7 +2,7 @@ import { useGameStore } from "@/store/gameStore";
 import { resultLabel } from "@/lib/gameEngine";
 import { Flag, Timer, Zap, Trophy, Skull } from "lucide-react";
 import React, { useMemo, useRef, useEffect, useState } from "react";
-import type { Cell } from "@/types";
+import type { Cell, GridConfig, GameResult } from "@/types";
 
 interface GameBoardProps {
   onCellClick: (cellId: string) => void;
@@ -14,6 +14,7 @@ interface GameBoardProps {
   customResult?: GameResult;
   customExplodedCellId?: string;
   customTimer?: number;
+  lowPerf?: boolean;
 }
 
 /* Couleurs classiques du démineur pour les chiffres */
@@ -34,14 +35,19 @@ interface CellComponentProps {
   isExploded: boolean;
   disabled: boolean;
   isGameOver: boolean;
+  lowPerf: boolean;
   onCellClick: (cellId: string) => void;
   onCellRightClick: (cellId: string) => void;
 }
 
-const CellComponent = React.memo(({ cell, cellSize, isExploded, disabled, isGameOver, onCellClick, onCellRightClick }: CellComponentProps) => {
+const CellComponent = React.memo(({ cell, cellSize, isExploded, disabled, isGameOver, lowPerf, onCellClick, onCellRightClick }: CellComponentProps) => {
   const isRevealed = cell.status === "revealed";
   const isMine = cell.hasMine;
   const num = cell.adjacentMines;
+  // Mine with a flag on it = correctly guessed, show green not red
+  const isMineWithFlag = isMine && isRevealed && cell.mark === "flag";
+  // Mine without flag = wrong, show red
+  const isMineNoFlag = isMine && isRevealed && cell.mark !== "flag";
 
   return (
     <button
@@ -58,19 +64,25 @@ const CellComponent = React.memo(({ cell, cellSize, isExploded, disabled, isGame
         color: isRevealed && !isMine && num > 0 ? NUMBER_COLORS[num] : undefined,
       }}
       className={[
-        "relative select-none font-bold transition-all duration-150 flex items-center justify-center rounded-lg",
+        "relative select-none font-bold flex items-center justify-center rounded-lg",
+        // Transition only in normal perf mode
+        !lowPerf && "transition-all duration-150",
         // 🔹 Case cachée : style futuriste 🔹
         !isRevealed && [
-          "bg-gradient-to-br from-slate-700 to-slate-800 border border-slate-500/50",
-          "shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),_0_2px_4px_rgba(0,0,0,0.4)]",
-          !disabled && "hover:from-slate-600 hover:to-slate-700 hover:border-cyan-400/80 hover:shadow-[0_0_10px_rgba(34,211,238,0.3)] active:scale-95 active:shadow-inner",
-        ].join(" "),
+          lowPerf
+            ? "bg-slate-700 border border-slate-600"
+            : "bg-gradient-to-br from-slate-700 to-slate-800 border border-slate-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),_0_2px_4px_rgba(0,0,0,0.4)]",
+          !disabled && !lowPerf && "hover:from-slate-600 hover:to-slate-700 hover:border-cyan-400/80 hover:shadow-[0_0_10px_rgba(34,211,238,0.3)] active:scale-95 active:shadow-inner",
+          !disabled && lowPerf && "hover:bg-slate-600",
+        ].filter(Boolean).join(" "),
         // 🔹 Case révélée : style creux futuriste 🔹
-        isRevealed && !isMine && "bg-[#0b1121] border border-white/5 shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)]",
+        isRevealed && !isMine && (lowPerf ? "bg-[#0b1121] border border-white/5" : "bg-[#0b1121] border border-white/5 shadow-[inset_0_3px_6px_rgba(0,0,0,0.6)]"),
         // 🔹 Mine explosée 🔹
-        isExploded && "bg-red-500 border border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.6)] z-10 scale-105",
-        // 🔹 Mine révélée (game over) 🔹
-        isRevealed && isMine && !isExploded && "bg-red-500/40 border border-red-500/50 shadow-[inset_0_3px_6px_rgba(0,0,0,0.8)] text-red-200",
+        isExploded && (lowPerf ? "bg-red-600 border border-red-400" : "bg-red-500 border border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.6)] z-10 scale-105"),
+        // 🔹 Mine révélée AVEC drapeau (correctement devinée) → vert 🔹
+        isMineWithFlag && !isExploded && (lowPerf ? "bg-emerald-700/60 border border-emerald-500/50" : "bg-emerald-500/30 border border-emerald-400/50 shadow-[inset_0_3px_6px_rgba(0,0,0,0.8)] text-emerald-200"),
+        // 🔹 Mine révélée SANS drapeau (game over) → rouge 🔹
+        isMineNoFlag && !isExploded && (lowPerf ? "bg-red-700/50 border border-red-500/50" : "bg-red-500/40 border border-red-500/50 shadow-[inset_0_3px_6px_rgba(0,0,0,0.8)] text-red-200"),
         // 🔹 Disabled 🔹
         disabled ? "cursor-not-allowed opacity-80" : "cursor-pointer",
       ]
@@ -80,7 +92,12 @@ const CellComponent = React.memo(({ cell, cellSize, isExploded, disabled, isGame
     >
       {isRevealed ? (
         isMine ? (
-          <span className="flex items-center justify-center text-base">✦</span>
+          // Show checkmark for correctly flagged mines, bomb for others
+          isMineWithFlag ? (
+            <span className="flex items-center justify-center text-base">✓</span>
+          ) : (
+            <span className="flex items-center justify-center text-base">✦</span>
+          )
         ) : num > 0 ? (
           <span className="flex items-center justify-center font-black">{num}</span>
         ) : null
@@ -103,6 +120,7 @@ export function GameBoard({
   customResult,
   customExplodedCellId,
   customTimer,
+  lowPerf = false,
 }: GameBoardProps) {
   const store = useGameStore();
   const game = customCells ? {
@@ -121,29 +139,25 @@ export function GameBoard({
   const minutes = Math.floor(timer / 60);
   const seconds = timer % 60;
 
+  // Auto-reduce perf on large grids
+  const isLargeGrid = config.width * config.height > 600;
+  const effectiveLowPerf = lowPerf || isLargeGrid;
+
   /* Taille de cellule adaptative : plus gros sur petites grilles */
   const cellSize = config.width <= 9 ? 42 : config.width <= 16 ? 34 : 28;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [baseScale, setBaseScale] = useState(1);
 
-  // ResizeObserver pour adapter l'échelle
+  // ResizeObserver pour adapter l'échelle (only when needed)
   useEffect(() => {
     if (!containerRef.current) return;
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const availableWidth = entry.contentRect.width;
-        // In focus mode, we also care about viewport height roughly
-        const availableHeight = Infinity;
-        
-        // gap = 2px
         const boardWidth = config.width * cellSize + (config.width - 1) * 2;
-        const boardHeight = config.height * cellSize + (config.height - 1) * 2;
-        
         const scaleWidth = boardWidth > availableWidth ? availableWidth / boardWidth : 1;
-        const scaleHeight = boardHeight > availableHeight ? availableHeight / boardHeight : 1;
-        
-        setBaseScale(Math.min(scaleWidth, scaleHeight, 1));
+        setBaseScale(Math.min(scaleWidth, 1));
       }
     });
     observer.observe(containerRef.current);
@@ -202,7 +216,7 @@ export function GameBoard({
         )}
 
         <div
-          className="mx-auto transition-transform duration-200 origin-top"
+          className={`mx-auto origin-top ${!effectiveLowPerf ? "transition-transform duration-200" : ""}`}
           style={{
             display: "grid",
             gridTemplateColumns: `repeat(${config.width}, ${cellSize}px)`,
@@ -219,6 +233,7 @@ export function GameBoard({
               isExploded={explodedCellId === cell.id}
               disabled={disabled}
               isGameOver={result !== "playing"}
+              lowPerf={effectiveLowPerf}
               onCellClick={onCellClick}
               onCellRightClick={onCellRightClick}
             />

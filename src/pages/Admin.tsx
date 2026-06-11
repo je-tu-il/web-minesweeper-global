@@ -26,6 +26,32 @@ const Admin = () => {
   const [password, setPassword] = useState("");
   const [unlocked, setUnlocked] = useState(false);
   const [error, setError] = useState("");
+  
+  // Rate limiting states
+  const [lockedUntil, setLockedUntil] = useState<number | null>(() => {
+    const saved = localStorage.getItem("adminLock");
+    if (saved) {
+      const lockTime = parseInt(saved, 10);
+      if (Date.now() < lockTime) return lockTime;
+      localStorage.removeItem("adminLock");
+    }
+    return null;
+  });
+  const [attempts, setAttempts] = useState<number>(() => parseInt(localStorage.getItem("adminAttempts") || "0", 10));
+
+  useEffect(() => {
+    if (lockedUntil) {
+      const interval = setInterval(() => {
+        if (Date.now() >= lockedUntil) {
+          setLockedUntil(null);
+          setAttempts(0);
+          localStorage.removeItem("adminLock");
+          localStorage.removeItem("adminAttempts");
+        }
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [lockedUntil]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [bannedUsernames, setBannedUsernames] = useState<string[]>([]);
   const [newBan, setNewBan] = useState("");
@@ -73,14 +99,31 @@ const Admin = () => {
   }, [unlocked]);
 
   const handleLogin = async () => {
+    if (lockedUntil && Date.now() < lockedUntil) {
+      setError(`Trop de tentatives. Réessayez dans ${Math.ceil((lockedUntil - Date.now()) / 1000)}s.`);
+      return;
+    }
+
     setIsAuthenticating(true);
     try {
       const realPassword = await getAdminPassword();
       if (realPassword && password === realPassword) {
         setUnlocked(true);
         setError("");
+        setAttempts(0);
+        localStorage.removeItem("adminAttempts");
       } else {
-        setError("Mot de passe invalide");
+        const newAttempts = attempts + 1;
+        setAttempts(newAttempts);
+        localStorage.setItem("adminAttempts", String(newAttempts));
+        if (newAttempts >= 5) {
+          const lockTime = Date.now() + 60000; // 1 minute lock
+          setLockedUntil(lockTime);
+          localStorage.setItem("adminLock", String(lockTime));
+          setError("Trop de tentatives. Bloqué pour 1 minute.");
+        } else {
+          setError(`Mot de passe invalide. (Essai ${newAttempts}/5)`);
+        }
       }
     } catch (err) {
       setError("Erreur de connexion à la base de données");
@@ -260,10 +303,10 @@ const Admin = () => {
 
           <button
             onClick={handleLogin}
-            disabled={isAuthenticating}
+            disabled={isAuthenticating || !!lockedUntil}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 py-3 font-bold text-slate-950 transition hover:bg-cyan-200 disabled:opacity-50"
           >
-            {isAuthenticating ? "Vérification..." : "Accéder"}
+            {lockedUntil ? `Bloqué (${Math.ceil((lockedUntil - Date.now()) / 1000)}s)` : isAuthenticating ? "Vérification..." : "Accéder"}
           </button>
 
           <Link to="/" className="mt-4 flex items-center justify-center gap-1.5 text-sm text-slate-500 transition hover:text-slate-300">

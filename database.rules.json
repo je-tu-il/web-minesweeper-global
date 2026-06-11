@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "globalChat": {
+      ".read": "auth != null",
+      "$messageId": {
+        ".write": "auth != null && !data.exists() && newData.hasChildren(['sender', 'text', 'timestamp'])"
+      }
+    },
+    "privateChats": {
+      "$chatId": {
+        ".read": "auth != null && $chatId.contains(auth.uid)",
+        "messages": {
+          "$messageId": {
+            ".write": "auth != null && $chatId.contains(auth.uid) && !data.exists() && newData.hasChildren(['sender', 'text', 'timestamp'])"
+          }
+        }
+      }
+    },
+    "status": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    "liveRoom": {
+      "$roomId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}

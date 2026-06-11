@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUiStore } from "@/store/uiStore";
 import { useGameStore } from "@/store/gameStore";
-import { subscribeRooms, joinRoom, deleteRoom, leaveRoom, addGameToHistory } from "@/lib/firestore";
+import { subscribeRooms, joinRoom, deleteRoom, leaveRoom, addGameToHistory, updateRoom } from "@/lib/firestore";
 import type { Room } from "@/types";
 import { createEmptyGame } from "@/lib/gameEngine";
 import { Plus, Users, Crosshair, Swords, Clock, Trash2, LogIn, LogOut, Eye } from "lucide-react";
@@ -19,6 +19,7 @@ const modeLabels: Record<string, string> = {
   solo: "Solo",
   duel: "Duel",
   "turn-based": "Tour par tour",
+  coop: "Co-op",
 };
 
 const statusLabels: Record<string, string> = {
@@ -94,12 +95,24 @@ export function LobbyPanel() {
     });
 
     const trap = isBanned;
+    const newPlayerCount = playerCount + 1;
     if (room.mode === "duel") {
-      initDuelGame(room.gridConfig, room.duelMode === "separate" ? room.seed + (room.createdBy === userProfile.uid ? 0 : 1) : room.seed, trap);
+      const mySeed = room.duelMode === "separate" ? room.seed + (room.createdBy === userProfile.uid ? 0 : 1) : room.seed;
+      initDuelGame(room.gridConfig, mySeed, trap);
+      // If this is the 2nd player joining a duel, mark as playing
+      if (newPlayerCount >= room.maxPlayers) {
+        updateRoom(room.roomId, { status: "playing" });
+      }
     } else if (room.mode === "coop") {
       useGameStore.getState().initCoopGame(room.gridConfig, room.seed, trap);
+      if (newPlayerCount >= room.maxPlayers) {
+        updateRoom(room.roomId, { status: "playing" });
+      }
     } else {
       initTurnBasedGame(room.gridConfig, trap);
+      if (newPlayerCount >= room.maxPlayers) {
+        updateRoom(room.roomId, { status: "playing" });
+      }
     }
 
     setSelectedRoomId(room.roomId);
@@ -109,14 +122,22 @@ export function LobbyPanel() {
   const handleDeleteClick = (roomId: string) => {
     const room = activeRooms.find((r) => r.roomId === roomId);
     if (room && userProfile) {
-      const hasStarted = room.firstClick || (room.players[userProfile.uid]?.revealedCells?.length ?? 0) > 0;
+      // Only count as defeat if player has actually revealed cells (started playing)
+      const myPlayer = room.players[userProfile.uid];
+      const hasRevealed = (myPlayer?.revealedCells?.length ?? 0) > 0;
+      const hasFirstClick = !!room.firstClick;
+      // For shared-board modes, check if any player has revealed cells
+      const anyoneRevealed = Object.values(room.players || {}).some(
+        (p) => (p.revealedCells?.length ?? 0) > 0
+      );
+      const hasStarted = hasRevealed || (hasFirstClick && anyoneRevealed);
       if (hasStarted) {
         setDeletingRoomId(roomId);
         return;
       }
     }
-    // Delete directly if not started
-    executeDelete(roomId);
+    // Delete directly if not started — no defeat counted
+    executeDelete(roomId, false);
   };
 
   const executeDelete = async (roomId: string, addDefeat: boolean = false) => {

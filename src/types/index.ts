@@ -90,6 +90,7 @@ export interface UserProfile {
   history?: GameHistoryEntry[]; // Historique des parties
   maxActiveRooms?: number; // Limite de parties en cours (surcharge globale)
   isBanned?: boolean; // Vrai si le joueur est banni
+  lowPerformance?: boolean; // Mode basse performance (désactive animations lourdes)
   createdAt: number;
 }
 
@@ -207,5 +208,5 @@ export interface GameState {
   explodedCellId?: string;
   seed?: number;
   flagsUsed: boolean; // tracking pour succès "Puriste"
-  clickedRevealed: boolean; // tracking pour succès "Louis"
+  clickedRevealed: boolean; // tracking pour clic sur révélé
 }

@@ -286,10 +286,14 @@ function ConversationItem({ icon, label, sublabel, color, onClick }: {
 // ── Main ChatPanel ────────────────────────────────────────
 export function ChatPanel({ roomId }: ChatPanelProps) {
   const { userProfile } = useAuth();
-  const [isOpen, setIsOpen] = useState(false);
-  const [activeView, setActiveView] = useState<"list" | "global" | "room" | "private">("list");
-  const { activePrivateChat, setActivePrivateChat } = useUiStore();
+  // Use persisted state from uiStore
+  const { isChatOpen, setIsChatOpen, chatView, setChatView, activePrivateChat, setActivePrivateChat } = useUiStore();
   const [hasUnread, setHasUnread] = useState(false);
+
+  const isOpen = isChatOpen;
+  const setIsOpen = setIsChatOpen;
+  const activeView = chatView;
+  const setActiveView = (v: typeof chatView) => setChatView(v);
 
   // Listen for unread messages globally
   useEffect(() => {
@@ -334,10 +338,10 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
 
   return (
     <>
-      {/* Toggle button — fixed top right edge */}
+      {/* Toggle button — fixed bottom right */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed right-6 top-4 z-40 rounded-xl border border-cyan-300/25 bg-cyan-300/10 p-2.5 text-cyan-200 shadow-lg shadow-cyan-500/10 backdrop-blur transition hover:bg-cyan-300/20"
+        className="fixed right-6 bottom-20 z-40 rounded-xl border border-cyan-300/25 bg-cyan-300/10 p-2.5 text-cyan-200 shadow-lg shadow-cyan-500/10 backdrop-blur transition hover:bg-cyan-300/20"
         title="Chat"
       >
         <MessageCircle className="h-5 w-5" />
@@ -349,10 +353,10 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
         )}
       </button>
 
-      {/* Slide panel */}
+      {/* Slide panel — positioned above the toggle button */}
       <aside
-        className={`fixed top-20 right-6 z-50 flex h-[500px] max-h-[80vh] w-80 flex-col rounded-2xl border border-white/10 bg-[#060e1e]/95 shadow-2xl shadow-cyan-900/20 backdrop-blur-xl transition-all duration-300 ease-out ${
-          isOpen ? "translate-y-0 opacity-100" : "-translate-y-8 opacity-0 pointer-events-none"
+        className={`fixed bottom-32 right-6 z-50 flex h-[500px] max-h-[80vh] w-80 flex-col rounded-2xl border border-white/10 bg-[#060e1e]/95 shadow-2xl shadow-cyan-900/20 backdrop-blur-xl transition-all duration-300 ease-out ${
+          isOpen ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0 pointer-events-none"
         }`}
       >
         {/* Header */}

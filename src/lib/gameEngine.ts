@@ -95,6 +95,115 @@ export const generateDuelBoard = (config: GridConfig, seed: number): GameState =
   return generateSafeBoardSeeded(state, centerX, centerY, seed);
 };
 
+/* ── Pure Logic Solver ── */
+
+/**
+ * Simple CSP-based pure logic solver.
+ * Returns true if the board is solvable by pure logic (no guessing needed).
+ * Uses constraint propagation: if a cell's constraint is fully satisfied by flags,
+ * or all remaining hidden neighbors must be mines, we can deduce deterministically.
+ */
+export function isPureLogicSolvable(cells: Cell[], config: GridConfig): boolean {
+  // Simulate solving
+  const byId = new Map(cells.map((c) => [c.id, { ...c }]));
+  const mines = new Set(cells.filter(c => c.hasMine).map(c => c.id));
+  
+  // Start by revealing from a safe "first click" cell (a corner neighbor area)
+  // Find a non-mine cell with 0 adjacent mines
+  const zeroCells = cells.filter(c => !c.hasMine && c.adjacentMines === 0);
+  if (zeroCells.length === 0) return false; // No zero cells = must guess
+
+  // Simulate reveals
+  const revealed = new Set<string>();
+  const flagged = new Set<string>();
+  
+  // BFS reveal from a zero cell
+  const bfsReveal = (startId: string) => {
+    const queue = [startId];
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      if (revealed.has(id) || flagged.has(id)) continue;
+      const cell = byId.get(id);
+      if (!cell || cell.hasMine) continue;
+      revealed.add(id);
+      if (cell.adjacentMines === 0) {
+        queue.push(...neighbors(cell.x, cell.y, config));
+      }
+    }
+  };
+  
+  bfsReveal(zeroCells[0].id);
+  
+  let progress = true;
+  const MAX_ITERATIONS = 500;
+  let iterations = 0;
+  
+  while (progress && iterations < MAX_ITERATIONS) {
+    progress = false;
+    iterations++;
+    
+    // For each revealed numbered cell, apply constraints
+    for (const id of revealed) {
+      const cell = byId.get(id);
+      if (!cell || cell.adjacentMines === 0) continue;
+      
+      const nbs = neighbors(cell.x, cell.y, config);
+      const hiddenNbs = nbs.filter(n => !revealed.has(n) && !flagged.has(n));
+      const flaggedNbs = nbs.filter(n => flagged.has(n));
+      const mineNbs = nbs.filter(n => mines.has(n));
+      const remainingMines = mineNbs.length - flaggedNbs.length;
+      
+      if (hiddenNbs.length === 0) continue;
+      
+      // All hidden neighbors are mines → flag them
+      if (remainingMines === hiddenNbs.length && remainingMines > 0) {
+        for (const n of hiddenNbs) {
+          flagged.add(n);
+          progress = true;
+        }
+      }
+      
+      // All mines found → reveal remaining hidden neighbors
+      if (remainingMines === 0 && hiddenNbs.length > 0) {
+        for (const n of hiddenNbs) {
+          if (!mines.has(n)) {
+            bfsReveal(n);
+            progress = true;
+          }
+        }
+      }
+    }
+  }
+  
+  // Check if all non-mine cells are revealed
+  const totalSafeCells = cells.filter(c => !c.hasMine).length;
+  return revealed.size === totalSafeCells;
+}
+
+/**
+ * Generate a board that is solvable by pure logic.
+ * Tries up to maxAttempts times with different seeds.
+ */
+export const generatePureLogicBoard = (
+  config: GridConfig,
+  safeX: number,
+  safeY: number,
+  baseSeed: number,
+): GameState => {
+  const MAX_ATTEMPTS = 80;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const seed = baseSeed + attempt * 7919; // Use prime offset for variety
+    const emptyState = createEmptyGame(config);
+    const candidate = generateSafeBoardSeeded(emptyState, safeX, safeY, seed);
+    if (isPureLogicSolvable(candidate.cells, config)) {
+      return { ...candidate, seed };
+    }
+  }
+  // Fallback: return a regular seeded board if no pure logic solution found
+  const emptyState = createEmptyGame(config);
+  return generateSafeBoardSeeded(emptyState, safeX, safeY, baseSeed);
+};
+
 /* ── Reveal logic ── */
 
 const revealFrom = (state: GameState, id: string): GameState => {
@@ -136,9 +245,17 @@ export const revealCell = (state: GameState, id: string, isTrap: boolean): GameS
         for (const cellToReveal of toReveal) {
           if (nextState.result !== "playing") break;
           if (cellToReveal.hasMine) {
+            // On game over: reveal all mines but PRESERVE flags on correctly flagged mines
             nextState = {
               ...nextState,
-              cells: nextState.cells.map((c) => (c.hasMine ? { ...c, status: "revealed" as const } : c)),
+              cells: nextState.cells.map((c) => {
+                if (c.hasMine) {
+                  // Keep flag mark visible on correctly flagged mines
+                  if (c.mark === "flag") return { ...c, status: "revealed" as const };
+                  return { ...c, status: "revealed" as const, mark: null };
+                }
+                return c;
+              }),
               result: "lost",
               explodedCellId: cellToReveal.id,
             };
@@ -171,7 +288,14 @@ export const revealCell = (state: GameState, id: string, isTrap: boolean): GameS
   if (clicked?.hasMine) {
     return {
       ...generated,
-      cells: generated.cells.map((cell) => (cell.hasMine ? { ...cell, status: "revealed" as const } : cell)),
+      // On game over: reveal all mines but preserve flag marks on correctly flagged mines
+      cells: generated.cells.map((cell) => {
+        if (cell.hasMine) {
+          if (cell.mark === "flag") return { ...cell, status: "revealed" as const };
+          return { ...cell, status: "revealed" as const, mark: null };
+        }
+        return cell;
+      }),
       result: "lost",
       explodedCellId: id,
     };

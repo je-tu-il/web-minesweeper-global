@@ -55,17 +55,15 @@ export async function addGameToHistory(uid: string, room: Room, game: any, time:
     firstClick: room.firstClick
   };
   
-  // Update stats
+  // Update stats for ALL modes (wins/losses impact winrate)
   const stats = { ...user.stats };
-  if (room.mode === "solo") {
-    if (game.result === "won") {
-      stats.totalWins++;
-      stats.winStreak++;
-      if (stats.winStreak > stats.bestWinStreak) stats.bestWinStreak = stats.winStreak;
-    } else if (game.result === "lost") {
-      stats.totalLosses++;
-      stats.winStreak = 0;
-    }
+  if (game.result === "won") {
+    stats.totalWins++;
+    stats.winStreak++;
+    if (stats.winStreak > stats.bestWinStreak) stats.bestWinStreak = stats.winStreak;
+  } else if (game.result === "lost") {
+    stats.totalLosses++;
+    stats.winStreak = 0;
   }
   stats.playTime = (stats.playTime || 0) + time;
   
@@ -378,4 +376,48 @@ export function subscribeLeaderboard(
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => d.data() as LeaderboardEntry));
   });
+}
+
+/* ================================================================
+   Wall Posts (mur de profil style Steam)
+   ================================================================ */
+
+export interface WallPost {
+  id: string;
+  authorUid: string;
+  authorUsername: string;
+  text: string;
+  timestamp: number;
+}
+
+export async function addWallPost(
+  profileUid: string,
+  authorUid: string,
+  authorUsername: string,
+  text: string,
+): Promise<void> {
+  const wallRef = collection(firestore, "users", profileUid, "wall");
+  const postRef = doc(wallRef);
+  await setDoc(postRef, {
+    id: postRef.id,
+    authorUid,
+    authorUsername,
+    text: text.slice(0, 500), // Max 500 chars
+    timestamp: Date.now(),
+  });
+}
+
+export function subscribeWallPosts(
+  profileUid: string,
+  callback: (posts: WallPost[]) => void,
+): () => void {
+  const wallRef = collection(firestore, "users", profileUid, "wall");
+  const q = query(wallRef, orderBy("timestamp", "desc"), limit(50));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => d.data() as WallPost));
+  });
+}
+
+export async function deleteWallPost(profileUid: string, postId: string): Promise<void> {
+  await deleteDoc(doc(firestore, "users", profileUid, "wall", postId));
 }

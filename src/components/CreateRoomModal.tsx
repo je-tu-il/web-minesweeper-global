@@ -34,7 +34,7 @@ export function CreateRoomModal() {
   const [customWidth, setCustomWidth] = useState("10");
   const [customHeight, setCustomHeight] = useState("10");
   const [customMines, setCustomMines] = useState("15");
-  const [pureLogic, setPureLogic] = useState(false);
+  const [pureLogic, setPureLogic] = useState(true);
   
   const [loading, setLoading] = useState(false);
 
@@ -56,11 +56,13 @@ export function CreateRoomModal() {
     setLoading(true);
 
     try {
-      const settings = await getGlobalSettings();
+      // Parallelize settings fetch and active rooms count for speed
+      const [settings, activeRoomsSnap] = await Promise.all([
+        getGlobalSettings(),
+        getDocs(query(collection(firestore, "rooms"), where("createdBy", "==", userProfile.uid), where("status", "in", ["waiting", "playing"]))),
+      ]);
       const limit = userProfile.maxActiveRooms ?? settings.maxActiveGames;
-      
-      const snap = await getDocs(query(collection(firestore, "rooms"), where("createdBy", "==", userProfile.uid), where("status", "in", ["waiting", "playing"]))); 
-      if (snap.size >= limit) { 
+      if (activeRoomsSnap.size >= limit) { 
         toast.error(`Vous ne pouvez pas avoir plus de ${limit} parties en cours.`); 
         setLoading(false); 
         return; 

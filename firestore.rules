@@ -18,6 +18,21 @@ service cloud.firestore {
         isAdmin() ||
         (resource != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends']))
       );
+
+      // Mur de profil (style Steam) — sous-collection de chaque utilisateur
+      match /wall/{postId} {
+        allow read: if request.auth != null;
+        // N'importe quel utilisateur connecté peut poster sur le mur d'un autre
+        allow create: if request.auth != null;
+        // Seul l'auteur du post ou le propriétaire du profil peut supprimer
+        allow delete: if request.auth != null && (
+          request.auth.uid == uid ||
+          resource.data.get('authorUid', '') == request.auth.uid ||
+          isAdmin()
+        );
+        // Pas de modification (post = immuable)
+        allow update: if false;
+      }
     }
 
     // Rooms de jeu
