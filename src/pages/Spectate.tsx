@@ -5,10 +5,10 @@ import { useParams, Link } from "react-router-dom";
 import { subscribeRoom, addAchievements } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { GameBoard } from "@/components/GameBoard";
-import { RoomChat } from "@/components/RoomChat";
 import { createEmptyGame, generateDuelBoard, generateSafeBoardSeeded } from "@/lib/gameEngine";
 import type { Room, RoomPlayer } from "@/types";
 import { ArrowLeft, Eye, Users } from "lucide-react";
+import { useUiStore } from "@/store/uiStore";
 
 export default function Spectate() {
   const { roomId } = useParams();
@@ -16,6 +16,11 @@ export default function Spectate() {
   const [room, setRoom] = useState<Room | null>(null);
   const [timer, setTimer] = useState(0);
   const [spectatorCount, setSpectatorCount] = useState(0);
+  const { setSelectedRoomId } = useUiStore();
+
+  useEffect(() => {
+    if (roomId) setSelectedRoomId(roomId);
+  }, [roomId, setSelectedRoomId]);
 
   // Subscribe to room
   useEffect(() => {
@@ -234,11 +239,6 @@ export default function Spectate() {
               </div>
             )}
           </div>
-
-          {/* Chat Sidebar */}
-          <aside className="h-[600px]">
-            <RoomChat roomId={room.roomId} />
-          </aside>
         </div>
       </div>
     </main>

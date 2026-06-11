@@ -142,6 +142,10 @@ export function UsernameModal() {
               onKeyDown={(e) => e.key === "Enter" && submit()}
               placeholder="MonPseudo_42"
               maxLength={20}
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck="false"
+              autoComplete="off"
               className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-cyan-300/50"
               autoFocus
             />

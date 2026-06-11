@@ -8,6 +8,8 @@ import { createEmptyGame } from "@/lib/gameEngine";
 import { Plus, Users, Crosshair, Swords, Clock, Trash2, LogIn, LogOut, Eye } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { rtdb } from "@/lib/firebase";
+import { ref as rtdbRef, get } from "firebase/database";
 
 const modeIcons: Record<string, typeof Crosshair> = {
   solo: Crosshair,
@@ -115,25 +117,31 @@ export function LobbyPanel() {
       }
     }
 
+    useGameStore.setState({ game: { status: "playing", result: "playing", firstClickDone: false, cells: [], config: room.gridConfig, time: 0, flagsCount: 0 } });
     setSelectedRoomId(room.roomId);
     setActivePanel("game");
   };
 
-  const handleDeleteClick = (roomId: string) => {
+  const handleDeleteClick = async (roomId: string) => {
     const room = activeRooms.find((r) => r.roomId === roomId);
     if (room && userProfile) {
-      // Only count as defeat if player has actually revealed cells (started playing)
-      const myPlayer = room.players[userProfile.uid];
-      const hasRevealed = (myPlayer?.revealedCells?.length ?? 0) > 0;
-      const hasFirstClick = !!room.firstClick;
-      // For shared-board modes, check if any player has revealed cells
-      const anyoneRevealed = Object.values(room.players || {}).some(
-        (p) => (p.revealedCells?.length ?? 0) > 0
-      );
-      const hasStarted = hasRevealed || (hasFirstClick && anyoneRevealed);
-      if (hasStarted) {
-        setDeletingRoomId(roomId);
+      if (!room.firstClick) {
+        executeDelete(roomId, false);
         return;
+      }
+      
+      try {
+        const myStateRef = rtdbRef(rtdb, `liveRoom/${roomId}/state/${userProfile.uid}`);
+        const snap = await get(myStateRef);
+        const myState = snap.val();
+        const hasRevealed = (myState?.revealedCells?.length ?? 0) > 0;
+        
+        if (hasRevealed) {
+          setDeletingRoomId(roomId);
+          return;
+        }
+      } catch(e) {
+        console.warn(e);
       }
     }
     // Delete directly if not started — no defeat counted

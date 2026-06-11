@@ -316,7 +316,7 @@ export async function deleteRoom(roomId: string): Promise<void> {
   }
 }
 
-/** Sync le game state dans la room (pour reprendre + spectate) */
+/** Sync le game state dans la room (pour reprendre + spectate) via RTDB (Performance +++) */
 export async function syncGameState(
   roomId: string,
   uid: string,
@@ -325,14 +325,13 @@ export async function syncGameState(
   questionCells: string[],
   explodedCellId?: string,
 ): Promise<void> {
-  const ref = doc(firestore, "rooms", roomId);
-  const data: Record<string, unknown> = {
-    [`players.${uid}.revealedCells`]: revealedCells,
-    [`players.${uid}.flaggedCells`]: flaggedCells,
-    [`players.${uid}.questionCells`]: questionCells,
-  };
-  if (explodedCellId) data[`players.${uid}.explodedCellId`] = explodedCellId;
-  await updateDoc(ref, data);
+  const stateRef = rtdbRef(rtdb, `liveRoom/${roomId}/state/${uid}`);
+  await set(stateRef, {
+    revealedCells,
+    flaggedCells,
+    questionCells,
+    ...(explodedCellId ? { explodedCellId } : {})
+  });
 }
 
 /* ================================================================

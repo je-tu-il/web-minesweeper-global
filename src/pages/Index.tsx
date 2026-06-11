@@ -120,24 +120,13 @@ const Index = () => {
         }
       }
 
-      // Restore personal game state if reconnecting
-      // (Using currentGameState declared at the top of the subscription)
+      // Restore personal game state if reconnecting -> DEPLACÉ VERS RTDB SAUF L'INITIALISATION
       if ((room.status === "playing" || room.status === "finished") && !currentGameState.firstClickDone) {
         const p = room.players[userProfile.uid];
-        const isSharedBoard = room.mode === "turn-based" || room.mode === "coop";
-        
-        if ((p?.revealedCells && p.revealedCells.length > 0) || (isSharedBoard && room.firstClick)) {
-          useGameStore.getState().restoreFromSync(
-            room.gridConfig,
-            room.mode === "duel" && room.duelMode === "separate" ? room.seed + (room.createdBy === userProfile.uid ? 0 : 1) : room.seed,
-            room.mode,
-            p?.revealedCells || [],
-            p.flaggedCells || [],
-            p.questionCells || [],
-            p.explodedCellId,
-            room.firstClick
-          );
-        } else {
+        // On initialise localement uniquement si la room ne contient PAS de trace du premier clic pour nous
+        // S'il y a des restored cells en RTDB, le listener RTDB s'en chargera.
+        if (!p?.revealedCells || p.revealedCells.length === 0) {
+
           // No progress yet, but game is playing. Initialize it locally.
           if (room.mode === "duel") {
             initDuelGame(room.gridConfig, room.duelMode === "separate" ? room.seed + (room.createdBy === userProfile.uid ? 0 : 1) : room.seed, isBanned);
@@ -149,34 +138,24 @@ const Index = () => {
         }
       }
 
-      // Sync opponent's state to local board (if shared board)
-      if (room.status === "playing" || room.status === "finished") {
-        const isSharedBoard = room.mode === "turn-based" || room.mode === "coop";
-        if (isSharedBoard) {
-          const myUid = userProfile.uid;
-          const otherPlayers = Object.values(room.players).filter(p => p.uid !== myUid);
-          if (otherPlayers.length > 0) {
-            const allRevealed = new Set<string>();
-            const allFlagged = new Set<string>();
-            const allQuestion = new Set<string>();
-            let explodedId: string | undefined;
+      // Si la room passe en finished mais qu'on est en playing (ex: l'autre joueur a cliqué sur une mine)
+      if (room.status === "finished" && currentGameState.result === "playing") {
+        useGameStore.setState((s) => ({ game: { ...s.game, result: "lost" } }));
+      }
 
-            otherPlayers.forEach(p => {
-              p.revealedCells?.forEach(c => allRevealed.add(c));
-              p.flaggedCells?.forEach(c => allFlagged.add(c));
-              p.questionCells?.forEach(c => allQuestion.add(c));
-              if (p.explodedCellId) explodedId = p.explodedCellId;
-            });
-
-            useGameStore.getState().mergeOpponentState(
-              Array.from(allRevealed),
-              Array.from(allFlagged),
-              Array.from(allQuestion),
-              explodedId
-            );
-          }
+      // Si la room repasse en playing (revanche acceptée) et qu'on était sur un écran de fin
+      if (room.status === "playing" && currentGameState.result !== "playing") {
+        if (room.mode === "duel") {
+          initDuelGame(room.gridConfig, room.duelMode === "separate" ? room.seed + (room.createdBy === userProfile.uid ? 0 : 1) : room.seed, isBanned);
+        } else if (room.mode === "coop") {
+          useGameStore.getState().initCoopGame(room.gridConfig, room.seed, isBanned);
+        } else if (room.mode === "turn-based") {
+          initTurnBasedGame(room.gridConfig, isBanned);
         }
       }
+
+      // Sync opponent's state to local board (if shared board) -> DEPLACÉ VERS RTDB
+
       // Detect opponent left before game started in 1v1 — reset to waiting
       if (
         room.mode === "duel" &&
@@ -212,6 +191,61 @@ const Index = () => {
     });
     return () => unsub();
   }, [selectedRoomId]);
+
+  // Sync state via RTDB (performances +++)
+  useEffect(() => {
+    if (!selectedRoomId || !userProfile) return;
+    const stateRef = rtdbRef(rtdb, `liveRoom/${selectedRoomId}/state`);
+    const unsub = onValue(stateRef, (snap) => {
+      const room = roomRef.current;
+      if (!room || (room.status !== "playing" && room.status !== "finished")) return;
+      const val = snap.val();
+      if (!val) return;
+
+      const myState = val[userProfile.uid];
+      const currentGameState = useGameStore.getState().game;
+
+      // F5 / Refresh : Restore game if we have RTDB state and haven't clicked locally yet
+      if (!currentGameState.firstClickDone && myState?.revealedCells?.length > 0) {
+         useGameStore.getState().restoreFromSync(
+            room.gridConfig,
+            room.mode === "duel" && room.duelMode === "separate" ? room.seed + (room.createdBy === userProfile.uid ? 0 : 1) : room.seed,
+            room.mode,
+            myState.revealedCells || [],
+            myState.flaggedCells || [],
+            myState.questionCells || [],
+            myState.explodedCellId,
+            room.firstClick
+          );
+      }
+
+      // Merge opponent states for shared boards
+      const isSharedBoard = room.mode === "turn-based" || room.mode === "coop" || (room.mode === "duel" && room.duelMode === "shared");
+      if (isSharedBoard) {
+        const allRevealed = new Set<string>();
+        const allFlagged = new Set<string>();
+        const allQuestion = new Set<string>();
+        let explodedId: string | undefined;
+
+        Object.keys(val).forEach(uid => {
+          if (uid === userProfile.uid) return;
+          const pState = val[uid];
+          pState.revealedCells?.forEach((c: string) => allRevealed.add(c));
+          pState.flaggedCells?.forEach((c: string) => allFlagged.add(c));
+          pState.questionCells?.forEach((c: string) => allQuestion.add(c));
+          if (pState.explodedCellId) explodedId = pState.explodedCellId;
+        });
+
+        useGameStore.getState().mergeOpponentState(
+          Array.from(allRevealed),
+          Array.from(allFlagged),
+          Array.from(allQuestion),
+          explodedId
+        );
+      }
+    });
+    return () => unsub();
+  }, [selectedRoomId, userProfile]);
 
   // Update stats, achievements, leaderboard when game ends
   useEffect(() => {

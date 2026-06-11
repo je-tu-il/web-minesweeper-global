@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo, FormEvent } from "react";
-import { onValue, push, ref, set, serverTimestamp } from "firebase/database";
+import { onValue, onChildAdded, query, limitToLast, push, ref, set, serverTimestamp } from "firebase/database";
 import { rtdb } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
-import { getUserProfile } from "@/lib/firestore";
+import { getUserProfile, addAchievements } from "@/lib/firestore";
 import { RoomChat } from "@/components/RoomChat";
 import { useUiStore } from "@/store/uiStore";
 import type { ChatMessage, UserProfile } from "@/types";
@@ -61,6 +61,10 @@ function GlobalChatInline() {
       text: clean,
       timestamp: serverTimestamp(),
     });
+
+    if (clean.toLowerCase() === "uwu" && !userProfile.achievements?.includes("egirl")) {
+      await addAchievements(userProfile.uid, ["egirl"]);
+    }
   };
 
   if (!user || !userProfile) {
@@ -286,8 +290,7 @@ function ConversationItem({ icon, label, sublabel, color, onClick }: {
 // ── Main ChatPanel ────────────────────────────────────────
 export function ChatPanel({ roomId }: ChatPanelProps) {
   const { userProfile } = useAuth();
-  // Use persisted state from uiStore
-  const { isChatOpen, setIsChatOpen, chatView, setChatView, activePrivateChat, setActivePrivateChat } = useUiStore();
+  const { isChatOpen, setIsChatOpen, chatView, setChatView, activePrivateChat, setActivePrivateChat, unreadCount, incrementUnreadCount } = useUiStore();
   const [hasUnread, setHasUnread] = useState(false);
 
   const isOpen = isChatOpen;
@@ -321,6 +324,35 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
     return unsub;
   }, [userProfile?.uid, isOpen]);
 
+  // Listen for new global messages
+  useEffect(() => {
+    let initialLoad = true;
+    const globalRef = query(ref(rtdb, "globalChat"), limitToLast(1));
+    const unsub = onChildAdded(globalRef, () => {
+      if (initialLoad) {
+        initialLoad = false;
+        return;
+      }
+      incrementUnreadCount();
+    });
+    return unsub;
+  }, [incrementUnreadCount]);
+
+  // Listen for new room messages
+  useEffect(() => {
+    if (!roomId) return;
+    let initialLoad = true;
+    const roomRef = query(ref(rtdb, `rooms/${roomId}/chat`), limitToLast(1));
+    const unsub = onChildAdded(roomRef, () => {
+      if (initialLoad) {
+        initialLoad = false;
+        return;
+      }
+      incrementUnreadCount();
+    });
+    return unsub;
+  }, [roomId, incrementUnreadCount]);
+
   // When private chat is set from outside (e.g., profile page), open panel and show it
   useEffect(() => {
     if (activePrivateChat) {
@@ -338,25 +370,24 @@ export function ChatPanel({ roomId }: ChatPanelProps) {
 
   return (
     <>
-      {/* Toggle button — fixed bottom right */}
+      {/* Toggle button — fixed middle right */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed right-6 bottom-20 z-40 rounded-xl border border-cyan-300/25 bg-cyan-300/10 p-2.5 text-cyan-200 shadow-lg shadow-cyan-500/10 backdrop-blur transition hover:bg-cyan-300/20"
+        className="fixed right-0 top-1/2 -translate-y-1/2 z-40 rounded-l-xl border-y border-l border-cyan-300/25 bg-cyan-300/10 p-3 text-cyan-200 shadow-[0_0_20px_rgba(34,211,238,0.15)] backdrop-blur transition hover:bg-cyan-300/20 hover:pl-4"
         title="Chat"
       >
-        <MessageCircle className="h-5 w-5" />
-        {hasUnread && !isOpen && (
-          <span className="absolute -top-1 -right-1 flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border border-slate-900"></span>
+        <MessageCircle className="h-6 w-6" />
+        {(unreadCount > 0 || hasUnread) && !isOpen && (
+          <span className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-lg border-2 border-[#060e1e]">
+            {unreadCount > 0 ? (unreadCount > 99 ? "99+" : unreadCount) : "!"}
           </span>
         )}
       </button>
 
-      {/* Slide panel — positioned above the toggle button */}
+      {/* Slide panel — positioned next to the toggle button */}
       <aside
-        className={`fixed bottom-32 right-6 z-50 flex h-[500px] max-h-[80vh] w-80 flex-col rounded-2xl border border-white/10 bg-[#060e1e]/95 shadow-2xl shadow-cyan-900/20 backdrop-blur-xl transition-all duration-300 ease-out ${
-          isOpen ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0 pointer-events-none"
+        className={`fixed right-16 top-1/2 -translate-y-1/2 z-50 flex h-[600px] max-h-[85vh] w-80 flex-col rounded-2xl border border-white/10 bg-[#060e1e]/95 shadow-2xl shadow-cyan-900/20 backdrop-blur-xl transition-all duration-300 ease-out ${
+          isOpen ? "translate-x-0 opacity-100" : "translate-x-8 opacity-0 pointer-events-none"
         }`}
       >
         {/* Header */}

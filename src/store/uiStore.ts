@@ -9,6 +9,7 @@ interface UiState {
   activePrivateChat: { uid: string; username: string } | null;
   isChatOpen: boolean;
   chatView: "list" | "global" | "room" | "private";
+  unreadCount: number;
 }
 
 interface UiActions {
@@ -19,6 +20,8 @@ interface UiActions {
   setActivePrivateChat: (chat: { uid: string; username: string } | null) => void;
   setIsChatOpen: (open: boolean) => void;
   setChatView: (view: UiState["chatView"]) => void;
+  incrementUnreadCount: () => void;
+  clearUnreadCount: () => void;
 }
 
 export const useUiStore = create<UiState & UiActions>()(
@@ -31,14 +34,20 @@ export const useUiStore = create<UiState & UiActions>()(
       activePrivateChat: null,
       isChatOpen: false,
       chatView: "list",
+      unreadCount: 0,
 
       setActivePanel: (panel) => set({ activePanel: panel }),
       setSelectedRoomId: (id) => set({ selectedRoomId: id }),
       setShowUsernameModal: (show) => set({ showUsernameModal: show }),
       setShowCreateRoomModal: (show) => set({ showCreateRoomModal: show }),
       setActivePrivateChat: (chat) => set({ activePrivateChat: chat }),
-      setIsChatOpen: (open) => set({ isChatOpen: open }),
+      setIsChatOpen: (open) => {
+        set({ isChatOpen: open });
+        if (open) set({ unreadCount: 0 });
+      },
       setChatView: (view) => set({ chatView: view }),
+      incrementUnreadCount: () => set((state) => ({ unreadCount: state.isChatOpen ? 0 : state.unreadCount + 1 })),
+      clearUnreadCount: () => set({ unreadCount: 0 }),
     }),
     {
       name: "demineur-ui-store",
