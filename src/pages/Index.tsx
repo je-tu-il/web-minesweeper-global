@@ -590,7 +590,9 @@ const Index = () => {
           </div>
 
           <div className="absolute bottom-6 text-xs text-slate-500 font-medium">
-            This site is powered by Netlify
+            <a href="https://www.netlify.com" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">
+              This site is powered by Netlify
+            </a>
           </div>
         </div>
       </main>
@@ -850,7 +852,9 @@ const Index = () => {
         </div>
 
         <div className="mt-8 text-center text-xs text-slate-500 font-medium">
-          This site is powered by Netlify
+          <a href="https://www.netlify.com" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">
+            This site is powered by Netlify
+          </a>
         </div>
       </div>
     </main>
