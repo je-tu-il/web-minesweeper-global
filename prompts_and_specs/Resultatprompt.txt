@@ -1,0 +1,19 @@
+Je vais en faire une première version web complète et crédible : une interface sombre “esport terminal”, avec lobby, plateau jouable, chat temps réel modélisé, auth Firebase prête à brancher, moteur Safe Start + Shadowban, et admin sécurisé côté serveur en endpoint séparé. Je pose d’abord la base projet puis je valide le build.
+
+Made 7 actions
+Generated app icon
+Generated icon
+Made 17 actions
+C’est livré en première version web dans web-minesweeper-global.
+
+Ce qui est en place :
+
+Interface “esport terminal” premium avec lobby, stats live, plateau jouable et mode Piège.
+GameEngine TypeScript avec Safe Start 3×3 et logique Shadowban : premier clic = bombe immédiate si isTrap.
+Modèle Firebase complet : Firestore pour users/rooms/config, RTDB pour liveRoom/chat.
+Composant Chat branché sur Firebase Realtime Database.
+Hook d’auth Firebase Google avec persistance du token en cookie.
+Exemples prêts à porter pour Next.js App Router : route cookie session + Server Action admin sécurisée.
+Dashboard admin simulé avec vérification du mot de passe .1Azerty et liste bannedUsers.
+Icône d’app générée et installée.
+Validation réussie : build + checks OK.

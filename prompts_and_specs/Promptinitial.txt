@@ -1,0 +1,38 @@
+**Agis en tant qu'architecte logiciel expert en Next.js (App Router), TypeScript et Firebase. Je développe 'Minesweeper Global', une plateforme de jeu compétitive en temps réel.**
+
+**1. Architecture Globale :**
+
+* **Framework :** Next.js (App Router) avec Tailwind CSS.
+* **Gestion d'état :** Zustand (UI locale) et Firebase.
+* **Base de données hybride :**
+* Firestore pour les données persistantes (utilisateurs, rooms, statistiques, configuration admin).
+* Firebase Realtime Database (RTDB) pour les données éphémères (curseurs, présence en ligne, chat textuel).
+
+
+* **Authentification et Persistance :** Firebase Auth (Google Provider) avec une synchronisation du token via les cookies (API Routes/Server Actions de Next.js) pour maintenir la session côté serveur et éviter les reconnexions constantes.
+
+**2. Modèle de données :**
+
+* **Firestore `users**` : `{ uid, username, role (user|admin), stats: { totalWins, totalLosses }, achievements: [], friends: [] }`
+* **Firestore `rooms**` : `{ roomId, mode, status, isTrap (boolean), gridConfig, players: { playerId: { username, score } }, turn: string }`
+* **Firestore `config**` : Document `bannedUsers` contenant un tableau de pseudos.
+* **RTDB `liveRoom**` : `{ roomId: { cursors: { playerId: { x, y } }, chat: { messageId: { sender, text, timestamp } } } }`
+
+**3. Logique de Jeu & Shadowban (Le Piège) :**
+
+* **Génération standard :** Algorithme avec 'Safe Start' (zone 3x3 vide au premier clic). Clics : Gauche (Reveal), Droit (Flag/Question/Clear). Options de modes au tour par tour.
+* **Le Piège (Shadowban) :** Lorsqu'un joueur lance ou crée une partie, le serveur vérifie si son pseudo est dans `bannedUsers`. Si c'est le cas, il est redirigé normalement mais la room est instanciée avec `isTrap: true`.
+* **Exécution du Piège :** Côté GameEngine, si `isTrap` est actif, la génération classique est ignorée. Le tout premier clic du joueur révèle instantanément une bombe exactement sur la case cliquée, entraînant une défaite immédiate.
+
+**4. Fonctionnalités Sociales, Chat & Admin :**
+
+* **Chat en temps réel :** Composant de chat textuel de room synchronisé exclusivement via RTDB pour optimiser les coûts.
+* **Tableau de bord Admin (`/admin`) :** Accessible via un mot de passe (`.1Azerty`). Cette vérification doit impérativement se faire côté serveur via une Server Action pour ne pas exposer le mot de passe au client. L'admin peut voir les statistiques, la liste des comptes, et gérer le tableau `bannedUsers`.
+
+**5. Livrables attendus :**
+
+* L'architecture complète des dossiers (`/app`, `/components`, `/hooks`, `/lib`, `/types`).
+* Le code gérant l'authentification persistante via cookies (Route API ou Server Action).
+* L'implémentation du GameEngine avec la double logique (Safe Start vs `isTrap`).
+* Le code de la Server Action sécurisée gérant l'authentification Admin avec le mot de passe `.1Azerty`.
+* Le modèle complet du composant Chat branché sur RTDB.

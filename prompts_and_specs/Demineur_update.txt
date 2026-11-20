@@ -1,0 +1,31 @@
+PLUS TARD
+Le leaderboard ne s'actualise pas
+Historique des partie avec apercu de la map
+Skin de jeu
+Le mode classé
+Le combat de boss
+Option custom seed
+Le mode cooperatif
+La campagne
+Private room
+Mode elo classement
+Avatar chacun (emoji en fonction de l'avatar)
+Game Non classé → gem pour skin, modif profil, jeu, on peut l'offir a un autre + Fin de saison en fonction de l'elo
+Ajout Succes + Verif tous
+Perm Admin
+Mettre des roles
+
+Mode pure logique
+si refus de revanche met la room dans la liste des rooms avec possibilité de rejoindre
+
+Le succes egirl ne marche pas, apres que uwu ait été envoyer, supprimer le message et offrir le succes egirl
+Possible ensuite de l'ecrire et de l'envoyer si on a déjà le succes
+Possible d'obtenir le succes dans n'importe quel conversation
+La notif ne fonctionne pas sur les messages privés, ajoute la notif aussi sur la conversation concerné, remonte les dans l'ordre des plus récents
+Plus aucun pop up de menace de defaite si on supprime
+Mode pure logique pas encore bon pour les 1v1, on ne doit pas pouvoir tomber sur une case seul au premier clic
+Rejoindre une personne en 1v1 basique laisse en attente le createur du lobby (qui a cliquer une fois sur la map declanchant le attente d'un joueur), il ne peut voir la map qu'apres la victoire ou defaite de l'autre, si on rejoue les mines s'affichent et les anciens drapeaux aussi
+Si un joueur abandonne, ne pas rouvrir la room mais afficher victoire avec la possibilité de recrée une partie (possible de rejoindre a partir de ce moment)
+Si je reactualise la page, ajoute la possibilité de reprendre mes parties 1v1 ou autres
+Les chiffres ne s'affichent plus en mode co op
+La proposition de revanche en co op et autre multijoueur ne s'affiche pas sur l'autre et laisse le bouton nouvelle partie, sans la remplacer par accepter la revanche ou refuser
