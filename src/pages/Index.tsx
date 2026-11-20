@@ -22,7 +22,7 @@ import { ref as rtdbRef, onValue, remove } from "firebase/database";
 import { Link } from "react-router-dom";
 
 const Index = () => {
-  const { user, userProfile, isLoading, isBanned, signInWithGoogle, refreshProfile } = useAuth();
+  const { user, userProfile, isLoading, isBanned, signInWithGoogle, signInAsGuest, refreshProfile } = useAuth();
   const { activePanel, selectedRoomId, showUsernameModal, showCreateRoomModal, setActivePanel, setSelectedRoomId, setShowUsernameModal } = useUiStore();
   const { game, timer, handleReveal, handleFlag, tickTimer, isTimerRunning, initSoloGame, initDuelGame, initTurnBasedGame } = useGameStore();
 
@@ -568,12 +568,20 @@ const Index = () => {
             Démineur compétitif en temps réel. Solo, duel ou tour par tour. Chat en direct. Classement global.
           </p>
 
-          <button
-            onClick={signInWithGoogle}
-            className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-8 py-4 font-bold text-cyan-100 shadow-[0_0_40px_rgba(34,211,238,0.2)] transition hover:bg-cyan-400/20 hover:shadow-[0_0_60px_rgba(34,211,238,0.4)]"
-          >
-            Se connecter avec Google
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={signInWithGoogle}
+              className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-8 py-4 font-bold text-cyan-100 shadow-[0_0_40px_rgba(34,211,238,0.2)] transition hover:bg-cyan-400/20 hover:shadow-[0_0_60px_rgba(34,211,238,0.4)]"
+            >
+              Se connecter avec Google
+            </button>
+            <button
+              onClick={signInAsGuest}
+              className="rounded-2xl border border-white/20 bg-white/5 px-6 py-4 font-bold text-white shadow-lg transition hover:bg-white/10"
+            >
+              Mode Démo / Invité
+            </button>
+          </div>
           
           <div className="mt-16 grid grid-cols-3 gap-6 text-center">
             {[

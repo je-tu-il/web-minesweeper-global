@@ -10,6 +10,7 @@ interface AuthContextValue {
   isLoading: boolean;
   isBanned: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: { username?: string; avatarUrl?: string }) => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -79,8 +80,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signInWithPopup(auth, googleProvider);
   }
 
+  async function signInAsGuest() {
+    const guestUser: any = {
+      uid: "guest-" + Math.random().toString(36).substring(2, 9),
+      displayName: "Joueur Invité",
+      email: null,
+      isAnonymous: true,
+    };
+    setUser(guestUser);
+    setUserProfile({
+      uid: guestUser.uid,
+      username: "Joueur_Invite",
+      role: "user",
+      stats: { totalWins: 0, totalLosses: 0 },
+      achievements: [],
+      friends: [],
+      following: [],
+      createdAt: Date.now(),
+    });
+    setIsLoading(false);
+  }
+
   async function logout() {
-    await signOut(auth);
+    try {
+      await signOut(auth);
+    } catch {}
+    setUser(null);
     setUserProfile(null);
     setIsBanned(false);
   }
@@ -103,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, userProfile, isLoading, isBanned, signInWithGoogle, logout, updateProfile, refreshProfile }}
+      value={{ user, userProfile, isLoading, isBanned, signInWithGoogle, signInAsGuest, logout, updateProfile, refreshProfile }}
     >
       {children}
     </AuthContext.Provider>
