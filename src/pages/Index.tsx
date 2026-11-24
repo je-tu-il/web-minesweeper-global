@@ -552,7 +552,7 @@ const Index = () => {
   // ── Not logged in ──
   if (!user || !userProfile) {
     return (
-      <main className="relative min-h-screen overflow-hidden bg-[#03070c] text-slate-100">
+      <main className="mines-intro relative min-h-screen overflow-hidden bg-[#03070c] text-slate-100">
         <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(34,211,238,0.22),transparent_28%),radial-gradient(circle_at_84%_18%,rgba(245,158,11,0.16),transparent_25%),linear-gradient(135deg,rgba(15,23,42,0.2),rgba(2,6,23,0.95))]" />
         <div className="pointer-events-none fixed inset-0 opacity-[0.06] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:44px_44px]" />
 
@@ -583,7 +583,7 @@ const Index = () => {
             </button>
           </div>
           
-          <div className="mt-16 grid grid-cols-3 gap-6 text-center">
+          <div className="mines-quick-stats mt-12 grid grid-cols-3 text-center">
             {[
               { icon: Crosshair, label: "3 Modes", desc: "Solo · Duel · Tour par tour" },
               { icon: MessageCircle, label: "Chat live", desc: "Communication en temps réel" },
@@ -672,7 +672,7 @@ const Index = () => {
           </button>
         </div>
 
-        <div className={`grid gap-4 lg:grid-cols-[${isLeftOpen ? "320px" : "auto"}_minmax(0,1fr)]`}>
+        <div className={`mines-layout grid gap-4${isLeftOpen ? " mines-layout--with-lobby" : ""}`}>
           {/* Left: Lobby */}
           <aside className={`space-y-4 ${activePanel !== "lobby" ? "hidden lg:block" : ""}`}>
               {isLeftOpen ? (
