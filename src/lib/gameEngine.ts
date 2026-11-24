@@ -20,7 +20,7 @@ export function seededRandom(seed: number): () => number {
   let s = seed;
   return () => {
     s = (s * 1664525 + 1013904223) & 0xffffffff;
-    return (s >>> 0) / 0xffffffff;
+    return (s >>> 0) / 0x100000000;
   };
 }
 
@@ -40,23 +40,8 @@ export const createEmptyGame = (config: GridConfig): GameState => ({
 });
 
 /** Place mines randomly, keeping a 3×3 safe zone around (safeX, safeY). */
-export const generateSafeBoard = (state: GameState, safeX: number, safeY: number): GameState => {
-  const forbidden = new Set<string>([cellId(safeX, safeY), ...neighbors(safeX, safeY, state.config)]);
-  const candidates = state.cells.map((cell) => cell.id).filter((id) => !forbidden.has(id));
-  const mines = new Set<string>();
-  while (mines.size < Math.min(state.config.mines, candidates.length)) {
-    const picked = candidates[Math.floor(Math.random() * candidates.length)];
-    mines.add(picked);
-  }
-
-  const cells = state.cells.map((cell) => {
-    const hasMine = mines.has(cell.id);
-    const adjacentMines = hasMine ? 0 : neighbors(cell.x, cell.y, state.config).filter((id) => mines.has(id)).length;
-    return { ...cell, hasMine, adjacentMines };
-  });
-
-  return { ...state, cells, firstClickDone: true };
-};
+export const generateSafeBoard = (state: GameState, safeX: number, safeY: number): GameState =>
+  generateBoard(state, safeX, safeY, Math.random);
 
 /** Place mines using a deterministic seeded RNG — same seed = same board. */
 export const generateSafeBoardSeeded = (
@@ -64,19 +49,20 @@ export const generateSafeBoardSeeded = (
   safeX: number,
   safeY: number,
   seed: number,
-): GameState => {
-  const rng = seededRandom(seed);
+): GameState => generateBoard(state, safeX, safeY, seededRandom(seed));
+
+function generateBoard(state: GameState, safeX: number, safeY: number, rng: () => number): GameState {
   const forbidden = new Set<string>([cellId(safeX, safeY), ...neighbors(safeX, safeY, state.config)]);
   const candidates = state.cells.map((cell) => cell.id).filter((id) => !forbidden.has(id));
 
-  // Fisher-Yates shuffle with seeded RNG
-  const shuffled = [...candidates];
-  for (let i = shuffled.length - 1; i > 0; i--) {
+  // Fisher-Yates samples each candidate at most once.
+  for (let i = candidates.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
   }
 
-  const mines = new Set<string>(shuffled.slice(0, Math.min(state.config.mines, shuffled.length)));
+  const mineCount = Math.max(0, Math.min(state.config.mines, candidates.length));
+  const mines = new Set(candidates.slice(0, mineCount));
 
   const cells = state.cells.map((cell) => {
     const hasMine = mines.has(cell.id);
@@ -85,7 +71,7 @@ export const generateSafeBoardSeeded = (
   });
 
   return { ...state, cells, firstClickDone: true };
-};
+}
 
 /** Create a pre-generated board for duel mode — safe zone at board center. */
 export const generateDuelBoard = (config: GridConfig, seed: number): GameState => {
@@ -109,7 +95,7 @@ export const generateDuelBoard = (config: GridConfig, seed: number): GameState =
  * Uses constraint propagation: if a cell's constraint is fully satisfied by flags,
  * or all remaining hidden neighbors must be mines, we can deduce deterministically.
  */
-export function isPureLogicSolvable(cells: Cell[], config: GridConfig): boolean {
+export function isPureLogicSolvable(cells: Cell[], config: GridConfig, startId?: string): boolean {
   // Simulate solving
   const byId = new Map(cells.map((c) => [c.id, { ...c }]));
   const mines = new Set(cells.filter(c => c.hasMine).map(c => c.id));
@@ -117,7 +103,8 @@ export function isPureLogicSolvable(cells: Cell[], config: GridConfig): boolean 
   // Start by revealing from a safe "first click" cell (a corner neighbor area)
   // Find a non-mine cell with 0 adjacent mines
   const zeroCells = cells.filter(c => !c.hasMine && c.adjacentMines === 0);
-  if (zeroCells.length === 0) return false; // No zero cells = must guess
+  const start = startId === undefined ? zeroCells[0] : byId.get(startId);
+  if (!start || start.hasMine || start.adjacentMines !== 0) return false;
 
   // Simulate reveals
   const revealed = new Set<string>();
@@ -138,7 +125,7 @@ export function isPureLogicSolvable(cells: Cell[], config: GridConfig): boolean 
     }
   };
   
-  bfsReveal(zeroCells[0].id);
+  bfsReveal(start.id);
   
   let progress = true;
   const MAX_ITERATIONS = 500;
@@ -156,8 +143,7 @@ export function isPureLogicSolvable(cells: Cell[], config: GridConfig): boolean 
       const nbs = neighbors(cell.x, cell.y, config);
       const hiddenNbs = nbs.filter(n => !revealed.has(n) && !flagged.has(n));
       const flaggedNbs = nbs.filter(n => flagged.has(n));
-      const mineNbs = nbs.filter(n => mines.has(n));
-      const remainingMines = mineNbs.length - flaggedNbs.length;
+      const remainingMines = cell.adjacentMines - flaggedNbs.length;
       
       if (hiddenNbs.length === 0) continue;
       
@@ -201,7 +187,7 @@ export const generatePureLogicBoard = (
     const seed = baseSeed + attempt * 7919; // Use prime offset for variety
     const emptyState = createEmptyGame(config);
     const candidate = generateSafeBoardSeeded(emptyState, safeX, safeY, seed);
-    if (isPureLogicSolvable(candidate.cells, config)) {
+    if (isPureLogicSolvable(candidate.cells, config, cellId(safeX, safeY))) {
       return { ...candidate, seed };
     }
   }
@@ -287,7 +273,7 @@ export const revealCell = (state: GameState, id: string, isTrap: boolean): GameS
   const generated = state.firstClickDone 
     ? state 
     : state.config.pureLogic 
-      ? generatePureLogicBoard(state.config, target.x, target.y, state.seed || Date.now())
+      ? generatePureLogicStart(state, target)
       : (state.seed !== undefined 
           ? generateSafeBoardSeeded(state, target.x, target.y, state.seed)
           : generateSafeBoard(state, target.x, target.y));
@@ -310,6 +296,13 @@ export const revealCell = (state: GameState, id: string, isTrap: boolean): GameS
   }
   return revealFrom(generated, id);
 };
+
+function generatePureLogicStart(state: GameState, target: Cell): GameState {
+  const board = generatePureLogicBoard(state.config, target.x, target.y, state.seed ?? Date.now());
+  const marks = new Map(state.cells.map(cell => [cell.id, cell.mark]));
+  return { ...state, firstClickDone: true, seed: board.seed ?? state.seed,
+    cells: board.cells.map(cell => ({ ...cell, mark: marks.get(cell.id) ?? null })) };
+}
 
 export const cycleMark = (state: GameState, id: string): GameState => {
   if (state.result !== "playing") return state;
